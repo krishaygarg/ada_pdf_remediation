@@ -400,8 +400,8 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     elif item_type == 'empty_text':
                         final_ops.extend(data)
                     elif item_type == 'artifact':
-                        # Wrap path block in /Artifact BMC ... EMC
-                        final_ops.append(([pikepdf.Name("/Artifact")], pikepdf.Operator("BMC")))
+                        # Wrap path block in /Artifact << /Subtype /Layout >> BDC ... EMC
+                        final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
                     else: # other
