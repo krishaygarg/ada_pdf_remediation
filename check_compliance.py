@@ -296,5 +296,5 @@ def run_compliance_check(pdf_path: str) -> bool:
         return True
 
 if __name__ == "__main__":
-    path = "remediated_test_sample.pdf" if len(sys.argv) < 2 else sys.argv[1]
+    path = "samples/test_sample/remediated_test_sample.pdf" if len(sys.argv) < 2 else sys.argv[1]
     run_compliance_check(path)
