@@ -2,7 +2,5 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
-remediated_test_sample.pdf
-remediated_nutella.pdf
-remediated_physics.pdf
+remediated_*.pdf
 *.log

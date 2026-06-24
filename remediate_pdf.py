@@ -133,6 +133,10 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
     for operands, operator in instructions:
         op_name = str(operator)
         
+        # Strip pre-existing marked content operators to avoid nesting structural blocks
+        if op_name in ('BDC', 'BMC', 'EMC'):
+            continue
+            
         # Track CTM
         if op_name == 'q':
             ctm_stack.append(list(ctm))
@@ -581,12 +585,13 @@ def remediate_single_pdf(input_path: str, output_path: str):
         parent_tree_nums = pikepdf.Array()
         for idx, page_elems in enumerate(all_pages_struct_elems):
             parent_tree_nums.append(pikepdf.Integer(idx))
-            parent_tree_nums.append(pikepdf.Array(page_elems))
+            parent_tree_nums.append(pdf.make_indirect(pikepdf.Array(page_elems)))
             
+        parent_tree = pdf.make_indirect(pikepdf.Dictionary(Nums=parent_tree_nums))
         struct_tree_root = pdf.make_indirect(pikepdf.Dictionary(
             Type=pikepdf.Name("/StructTreeRoot"),
             K=document_elem,
-            ParentTree=pikepdf.Dictionary(Nums=parent_tree_nums)
+            ParentTree=parent_tree
         ))
         document_elem.P = struct_tree_root
         root.StructTreeRoot = struct_tree_root
@@ -615,9 +620,9 @@ def remediate_single_pdf(input_path: str, output_path: str):
         
         for obj in pdf.objects:
             if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name("/Font"):
-                base_font = str(obj.get("/BaseFont", ""))
-                if base_font and "/ToUnicode" not in obj:
-                    if base_font in font_tounicode:
+                if "/ToUnicode" not in obj:
+                    base_font = str(obj.get("/BaseFont", ""))
+                    if base_font and base_font in font_tounicode:
                         obj.ToUnicode = font_tounicode[base_font]
                     else:
                         cmap_stream = pikepdf.Stream(pdf, DEFAULT_TOUNICODE_CMAP.encode("utf-8"))
