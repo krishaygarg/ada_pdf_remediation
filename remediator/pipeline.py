@@ -11,6 +11,7 @@ from .config import LOCAL_TMP
 from .utils import merge_bboxes
 from .content_filter import filter_page_content
 from .font_patcher import generate_tounicode_cmap
+from .ocr_engine import generate_ocr_text_ops
 
 def remediate_single_pdf(input_path: str, output_path: str):
     """
@@ -131,6 +132,17 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     else: # other
                         final_ops.append(data)
                         
+            # Check if page is a scanned document (lacks live text operators)
+            page_text = (plumbpage.extract_text() or "").strip()
+            if len(page_text) < 10:
+                print(f"  - Scanned image page detected! Generating invisible OCR text layer...")
+                ocr_ops, ocr_elems, mcid = generate_ocr_text_ops(
+                    input_path, page_idx, page_width, page_height, mcid, pdf, document_elem
+                )
+                if ocr_ops:
+                    final_ops.extend(ocr_ops)
+                    page_struct_elems.extend(ocr_elems)
+
             # Append 'Q' to restore default page coordinates
             final_ops.append(([], pikepdf.Operator("Q")))
             
