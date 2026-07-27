@@ -1,0 +1,552 @@
+[
+    {
+        "image": "images/math_0000.png",
+        "latex": "x + y",
+        "spoken": "x plus y"
+    },
+    {
+        "image": "images/math_0001.png",
+        "latex": "x - y",
+        "spoken": "x minus y"
+    },
+    {
+        "image": "images/math_0002.png",
+        "latex": "x + y - z",
+        "spoken": "x plus y minus z"
+    },
+    {
+        "image": "images/math_0003.png",
+        "latex": "x y",
+        "spoken": "x times y"
+    },
+    {
+        "image": "images/math_0004.png",
+        "latex": "x \\cdot y",
+        "spoken": "x times y"
+    },
+    {
+        "image": "images/math_0005.png",
+        "latex": "x \\times y",
+        "spoken": "x times y"
+    },
+    {
+        "image": "images/math_0006.png",
+        "latex": "\\frac{x}{y}",
+        "spoken": "fraction x over y"
+    },
+    {
+        "image": "images/math_0007.png",
+        "latex": "\\frac{x + y}{z}",
+        "spoken": "fraction x plus y over z"
+    },
+    {
+        "image": "images/math_0008.png",
+        "latex": "x^2",
+        "spoken": "x squared"
+    },
+    {
+        "image": "images/math_0009.png",
+        "latex": "x^3",
+        "spoken": "x cubed"
+    },
+    {
+        "image": "images/math_0010.png",
+        "latex": "x^n",
+        "spoken": "x to the power of n"
+    },
+    {
+        "image": "images/math_0011.png",
+        "latex": "x^y",
+        "spoken": "x to the power of y"
+    },
+    {
+        "image": "images/math_0012.png",
+        "latex": "x_i",
+        "spoken": "x sub i"
+    },
+    {
+        "image": "images/math_0013.png",
+        "latex": "x_{i+1}",
+        "spoken": "x sub i plus one"
+    },
+    {
+        "image": "images/math_0014.png",
+        "latex": "x_{t-1}",
+        "spoken": "x sub t minus one"
+    },
+    {
+        "image": "images/math_0015.png",
+        "latex": "\\int x \\, dx",
+        "spoken": "integral of x d x"
+    },
+    {
+        "image": "images/math_0016.png",
+        "latex": "\\int x^2 \\, dx",
+        "spoken": "integral of x squared d x"
+    },
+    {
+        "image": "images/math_0017.png",
+        "latex": "\\int_{a}^{b} x \\, dx",
+        "spoken": "integral from a to b of x d x"
+    },
+    {
+        "image": "images/math_0018.png",
+        "latex": "\\int_{0}^{1} x^2 \\, dx",
+        "spoken": "integral from zero to one of x squared d x"
+    },
+    {
+        "image": "images/math_0019.png",
+        "latex": "\\sum x_i",
+        "spoken": "sum of x sub i"
+    },
+    {
+        "image": "images/math_0020.png",
+        "latex": "\\sum_{i=1}^{n} x_i",
+        "spoken": "sum from i equals one to n of x sub i"
+    },
+    {
+        "image": "images/math_0021.png",
+        "latex": "\\sqrt{x}",
+        "spoken": "square root of x"
+    },
+    {
+        "image": "images/math_0022.png",
+        "latex": "\\sqrt{x^2 + y^2}",
+        "spoken": "square root of x squared plus y squared"
+    },
+    {
+        "image": "images/math_0023.png",
+        "latex": "x^2 + y^2 = z^2",
+        "spoken": "x squared plus y squared equals z squared"
+    },
+    {
+        "image": "images/math_0024.png",
+        "latex": "f(x) = x^2",
+        "spoken": "f of x equals x squared"
+    },
+    {
+        "image": "images/math_0025.png",
+        "latex": "a + b",
+        "spoken": "a plus b"
+    },
+    {
+        "image": "images/math_0026.png",
+        "latex": "a - b",
+        "spoken": "a minus b"
+    },
+    {
+        "image": "images/math_0027.png",
+        "latex": "a + b - c",
+        "spoken": "a plus b minus c"
+    },
+    {
+        "image": "images/math_0028.png",
+        "latex": "a b",
+        "spoken": "a times b"
+    },
+    {
+        "image": "images/math_0029.png",
+        "latex": "a \\cdot b",
+        "spoken": "a times b"
+    },
+    {
+        "image": "images/math_0030.png",
+        "latex": "a \\times b",
+        "spoken": "a times b"
+    },
+    {
+        "image": "images/math_0031.png",
+        "latex": "\\frac{a}{b}",
+        "spoken": "fraction a over b"
+    },
+    {
+        "image": "images/math_0032.png",
+        "latex": "\\frac{a + b}{c}",
+        "spoken": "fraction a plus b over c"
+    },
+    {
+        "image": "images/math_0033.png",
+        "latex": "a^2",
+        "spoken": "a squared"
+    },
+    {
+        "image": "images/math_0034.png",
+        "latex": "a^3",
+        "spoken": "a cubed"
+    },
+    {
+        "image": "images/math_0035.png",
+        "latex": "a^n",
+        "spoken": "a to the power of n"
+    },
+    {
+        "image": "images/math_0036.png",
+        "latex": "a^b",
+        "spoken": "a to the power of b"
+    },
+    {
+        "image": "images/math_0037.png",
+        "latex": "a_i",
+        "spoken": "a sub i"
+    },
+    {
+        "image": "images/math_0038.png",
+        "latex": "a_{i+1}",
+        "spoken": "a sub i plus one"
+    },
+    {
+        "image": "images/math_0039.png",
+        "latex": "a_{t-1}",
+        "spoken": "a sub t minus one"
+    },
+    {
+        "image": "images/math_0040.png",
+        "latex": "\\int a \\, da",
+        "spoken": "integral of a d a"
+    },
+    {
+        "image": "images/math_0041.png",
+        "latex": "\\int a^2 \\, da",
+        "spoken": "integral of a squared d a"
+    },
+    {
+        "image": "images/math_0042.png",
+        "latex": "\\int_{a}^{b} a \\, da",
+        "spoken": "integral from a to b of a d a"
+    },
+    {
+        "image": "images/math_0043.png",
+        "latex": "\\int_{0}^{1} a^2 \\, da",
+        "spoken": "integral from zero to one of a squared d a"
+    },
+    {
+        "image": "images/math_0044.png",
+        "latex": "\\sum a_i",
+        "spoken": "sum of a sub i"
+    },
+    {
+        "image": "images/math_0045.png",
+        "latex": "\\sum_{i=1}^{n} a_i",
+        "spoken": "sum from i equals one to n of a sub i"
+    },
+    {
+        "image": "images/math_0046.png",
+        "latex": "\\sqrt{a}",
+        "spoken": "square root of a"
+    },
+    {
+        "image": "images/math_0047.png",
+        "latex": "\\sqrt{a^2 + b^2}",
+        "spoken": "square root of a squared plus b squared"
+    },
+    {
+        "image": "images/math_0048.png",
+        "latex": "a^2 + b^2 = c^2",
+        "spoken": "a squared plus b squared equals c squared"
+    },
+    {
+        "image": "images/math_0049.png",
+        "latex": "f(a) = a^2",
+        "spoken": "f of a equals a squared"
+    },
+    {
+        "image": "images/math_0050.png",
+        "latex": "u + v",
+        "spoken": "u plus v"
+    },
+    {
+        "image": "images/math_0051.png",
+        "latex": "u - v",
+        "spoken": "u minus v"
+    },
+    {
+        "image": "images/math_0052.png",
+        "latex": "u + v - w",
+        "spoken": "u plus v minus w"
+    },
+    {
+        "image": "images/math_0053.png",
+        "latex": "u v",
+        "spoken": "u times v"
+    },
+    {
+        "image": "images/math_0054.png",
+        "latex": "u \\cdot v",
+        "spoken": "u times v"
+    },
+    {
+        "image": "images/math_0055.png",
+        "latex": "u \\times v",
+        "spoken": "u times v"
+    },
+    {
+        "image": "images/math_0056.png",
+        "latex": "\\frac{u}{v}",
+        "spoken": "fraction u over v"
+    },
+    {
+        "image": "images/math_0057.png",
+        "latex": "\\frac{u + v}{w}",
+        "spoken": "fraction u plus v over w"
+    },
+    {
+        "image": "images/math_0058.png",
+        "latex": "u^2",
+        "spoken": "u squared"
+    },
+    {
+        "image": "images/math_0059.png",
+        "latex": "u^3",
+        "spoken": "u cubed"
+    },
+    {
+        "image": "images/math_0060.png",
+        "latex": "u^n",
+        "spoken": "u to the power of n"
+    },
+    {
+        "image": "images/math_0061.png",
+        "latex": "u^v",
+        "spoken": "u to the power of v"
+    },
+    {
+        "image": "images/math_0062.png",
+        "latex": "u_i",
+        "spoken": "u sub i"
+    },
+    {
+        "image": "images/math_0063.png",
+        "latex": "u_{i+1}",
+        "spoken": "u sub i plus one"
+    },
+    {
+        "image": "images/math_0064.png",
+        "latex": "u_{t-1}",
+        "spoken": "u sub t minus one"
+    },
+    {
+        "image": "images/math_0065.png",
+        "latex": "\\int u \\, du",
+        "spoken": "integral of u d u"
+    },
+    {
+        "image": "images/math_0066.png",
+        "latex": "\\int u^2 \\, du",
+        "spoken": "integral of u squared d u"
+    },
+    {
+        "image": "images/math_0067.png",
+        "latex": "\\int_{a}^{b} u \\, du",
+        "spoken": "integral from a to b of u d u"
+    },
+    {
+        "image": "images/math_0068.png",
+        "latex": "\\int_{0}^{1} u^2 \\, du",
+        "spoken": "integral from zero to one of u squared d u"
+    },
+    {
+        "image": "images/math_0069.png",
+        "latex": "\\sum u_i",
+        "spoken": "sum of u sub i"
+    },
+    {
+        "image": "images/math_0070.png",
+        "latex": "\\sum_{i=1}^{n} u_i",
+        "spoken": "sum from i equals one to n of u sub i"
+    },
+    {
+        "image": "images/math_0071.png",
+        "latex": "\\sqrt{u}",
+        "spoken": "square root of u"
+    },
+    {
+        "image": "images/math_0072.png",
+        "latex": "\\sqrt{u^2 + v^2}",
+        "spoken": "square root of u squared plus v squared"
+    },
+    {
+        "image": "images/math_0073.png",
+        "latex": "u^2 + v^2 = w^2",
+        "spoken": "u squared plus v squared equals w squared"
+    },
+    {
+        "image": "images/math_0074.png",
+        "latex": "f(u) = u^2",
+        "spoken": "f of u equals u squared"
+    },
+    {
+        "image": "images/math_0075.png",
+        "latex": "p + q",
+        "spoken": "p plus q"
+    },
+    {
+        "image": "images/math_0076.png",
+        "latex": "p - q",
+        "spoken": "p minus q"
+    },
+    {
+        "image": "images/math_0077.png",
+        "latex": "p + q - r",
+        "spoken": "p plus q minus r"
+    },
+    {
+        "image": "images/math_0078.png",
+        "latex": "p q",
+        "spoken": "p times q"
+    },
+    {
+        "image": "images/math_0079.png",
+        "latex": "p \\cdot q",
+        "spoken": "p times q"
+    },
+    {
+        "image": "images/math_0080.png",
+        "latex": "p \\times q",
+        "spoken": "p times q"
+    },
+    {
+        "image": "images/math_0081.png",
+        "latex": "\\frac{p}{q}",
+        "spoken": "fraction p over q"
+    },
+    {
+        "image": "images/math_0082.png",
+        "latex": "\\frac{p + q}{r}",
+        "spoken": "fraction p plus q over r"
+    },
+    {
+        "image": "images/math_0083.png",
+        "latex": "p^2",
+        "spoken": "p squared"
+    },
+    {
+        "image": "images/math_0084.png",
+        "latex": "p^3",
+        "spoken": "p cubed"
+    },
+    {
+        "image": "images/math_0085.png",
+        "latex": "p^n",
+        "spoken": "p to the power of n"
+    },
+    {
+        "image": "images/math_0086.png",
+        "latex": "p^q",
+        "spoken": "p to the power of q"
+    },
+    {
+        "image": "images/math_0087.png",
+        "latex": "p_i",
+        "spoken": "p sub i"
+    },
+    {
+        "image": "images/math_0088.png",
+        "latex": "p_{i+1}",
+        "spoken": "p sub i plus one"
+    },
+    {
+        "image": "images/math_0089.png",
+        "latex": "p_{t-1}",
+        "spoken": "p sub t minus one"
+    },
+    {
+        "image": "images/math_0090.png",
+        "latex": "\\int p \\, dp",
+        "spoken": "integral of p d p"
+    },
+    {
+        "image": "images/math_0091.png",
+        "latex": "\\int p^2 \\, dp",
+        "spoken": "integral of p squared d p"
+    },
+    {
+        "image": "images/math_0092.png",
+        "latex": "\\int_{a}^{b} p \\, dp",
+        "spoken": "integral from a to b of p d p"
+    },
+    {
+        "image": "images/math_0093.png",
+        "latex": "\\int_{0}^{1} p^2 \\, dp",
+        "spoken": "integral from zero to one of p squared d p"
+    },
+    {
+        "image": "images/math_0094.png",
+        "latex": "\\sum p_i",
+        "spoken": "sum of p sub i"
+    },
+    {
+        "image": "images/math_0095.png",
+        "latex": "\\sum_{i=1}^{n} p_i",
+        "spoken": "sum from i equals one to n of p sub i"
+    },
+    {
+        "image": "images/math_0096.png",
+        "latex": "\\sqrt{p}",
+        "spoken": "square root of p"
+    },
+    {
+        "image": "images/math_0097.png",
+        "latex": "\\sqrt{p^2 + q^2}",
+        "spoken": "square root of p squared plus q squared"
+    },
+    {
+        "image": "images/math_0098.png",
+        "latex": "p^2 + q^2 = r^2",
+        "spoken": "p squared plus q squared equals r squared"
+    },
+    {
+        "image": "images/math_0099.png",
+        "latex": "f(p) = p^2",
+        "spoken": "f of p equals p squared"
+    },
+    {
+        "image": "images/math_0100.png",
+        "latex": "E = mc^2",
+        "spoken": "E equals m c squared"
+    },
+    {
+        "image": "images/math_0101.png",
+        "latex": "F = ma",
+        "spoken": "F equals m a"
+    },
+    {
+        "image": "images/math_0102.png",
+        "latex": "\\log(x)",
+        "spoken": "log of x"
+    },
+    {
+        "image": "images/math_0103.png",
+        "latex": "\\sin(\\theta)",
+        "spoken": "sine of theta"
+    },
+    {
+        "image": "images/math_0104.png",
+        "latex": "\\cos(x)",
+        "spoken": "cosine of x"
+    },
+    {
+        "image": "images/math_0105.png",
+        "latex": "e^{i \\pi} + 1 = 0",
+        "spoken": "e to the power of i pi plus one equals zero"
+    },
+    {
+        "image": "images/math_0106.png",
+        "latex": "a(b + c) = ab + ac",
+        "spoken": "a times open parenthesis b plus c close parenthesis equals a b plus a c"
+    },
+    {
+        "image": "images/math_0107.png",
+        "latex": "\\frac{1}{2}",
+        "spoken": "one half"
+    },
+    {
+        "image": "images/math_0108.png",
+        "latex": "\\frac{1}{3}",
+        "spoken": "one third"
+    },
+    {
+        "image": "images/math_0109.png",
+        "latex": "\\frac{1}{4}",
+        "spoken": "one quarter"
+    }
+]
