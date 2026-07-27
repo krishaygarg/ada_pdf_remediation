@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "Automated PDF accessibility remediation & reading order research platform"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
 authors = [
     {name = "ADA PDF Remediator Team"}
 ]

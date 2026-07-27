@@ -1,6 +1,6 @@
 # Contributing to ADA PDF Remediator & Research
 
-Thank you for your interest in contributing! This codebase is designed to be accessible for both core open-source software contributions and academic research tasks outlined under [`docs/planning/`](docs/planning/).
+Thank you for your interest in contributing! This codebase is designed to support core software development and academic research tasks outlined under [`docs/planning/`](docs/planning/).
 
 ---
 
