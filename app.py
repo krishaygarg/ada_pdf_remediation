@@ -12,7 +12,10 @@ from remediator.config import LOCAL_TMP
 from remediator.pipeline import remediate_single_pdf
 from remediator.compliance import run_compliance_check
 
-app = Flask(__name__, static_folder="web", static_url_path="")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+WEB_DIR = os.path.join(BASE_DIR, "web")
+
+app = Flask(__name__, static_folder=WEB_DIR, static_url_path="")
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max limit
 
 TASKS_DIR = os.path.join(LOCAL_TMP, "tasks")
@@ -22,7 +25,7 @@ os.makedirs(TASKS_DIR, exist_ok=True)
 @app.route("/")
 def index():
     """Serves the main Web UI interface."""
-    return send_from_directory("web", "index.html")
+    return send_from_directory(WEB_DIR, "index.html")
 
 
 @app.route("/health")
@@ -91,6 +94,14 @@ def download_api(task_id):
 
     output_path = os.path.join(task_folder, files[0])
     return send_file(output_path, as_attachment=True, download_name=files[0])
+
+
+@app.route("/<path:path>")
+def static_proxy(path):
+    """Serves static assets from web/ or falls back to index.html."""
+    if os.path.exists(os.path.join(WEB_DIR, path)):
+        return send_from_directory(WEB_DIR, path)
+    return send_from_directory(WEB_DIR, "index.html")
 
 
 if __name__ == "__main__":
