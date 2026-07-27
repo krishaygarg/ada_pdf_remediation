@@ -19,7 +19,7 @@ Thank you for your interest in contributing! This codebase is designed to be acc
    ```
 4. Verify your environment by running a compliance check on a sample PDF:
    ```bash
-   python check_compliance.py samples/test_sample/remediated_test_sample.pdf
+   python check_compliance.py samples/physics/physics.pdf
    ```
 
 ---
@@ -64,6 +64,6 @@ Our active research roadmap is organized into proposals and specs inside `docs/p
 - **Python Standard**: Use PEP 8 styling conventions with clear docstrings and type hints.
 - **No Hardcoded Machine Paths**: Use workspace-relative paths (`os.path.dirname(...)` or `remediator.config.LOCAL_TMP`) instead of absolute user directory paths.
 - **Verification**: Before submitting a PR, run:
-  1. `python remediate_pdf.py samples/test_sample/test_sample.pdf tmp/test.pdf`
+  1. `python remediate_pdf.py samples/physics/physics.pdf tmp/test.pdf`
   2. `python check_compliance.py tmp/test.pdf`
   Ensure all automated checks pass cleanly.

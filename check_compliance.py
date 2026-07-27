@@ -15,8 +15,8 @@ def main():
     parser.add_argument(
         "pdf_path",
         nargs="?",
-        default="samples/test_sample/remediated_test_sample.pdf",
-        help="Path to the target PDF document to check (default: samples/test_sample/remediated_test_sample.pdf)"
+        default="samples/physics/remediated_physics.pdf",
+        help="Path to the target PDF document to check (default: samples/physics/remediated_physics.pdf)"
     )
     parser.add_argument(
         "-q", "--quiet",

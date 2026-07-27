@@ -18,7 +18,7 @@ def main():
     if len(sys.argv) > 1:
         pdf_path = sys.argv[1]
     else:
-        pdf_path = os.path.join(workspace_dir, "samples", "test_sample", "test_sample.pdf")
+        pdf_path = os.path.join(workspace_dir, "samples", "physics", "physics.pdf")
         
     pdf_path = os.path.abspath(pdf_path)
     

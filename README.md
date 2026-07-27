@@ -77,10 +77,10 @@ To remediate an un-accessible PDF and generate a PDF/UA-1 compliant document:
 
 ```bash
 # Using CLI script
-python remediate_pdf.py samples/test_sample/test_sample.pdf outputs/remediated_sample.pdf
+python remediate_pdf.py samples/physics/physics.pdf outputs/remediated_physics.pdf
 
 # Or using installed CLI command
-remediate-pdf samples/test_sample/test_sample.pdf outputs/remediated_sample.pdf
+remediate-pdf samples/physics/physics.pdf outputs/remediated_physics.pdf
 ```
 
 ### Auditing Accessibility Compliance
@@ -89,10 +89,10 @@ To run the compliance audit suite on any PDF file:
 
 ```bash
 # Using CLI script
-python check_compliance.py outputs/remediated_sample.pdf
+python check_compliance.py outputs/remediated_physics.pdf
 
 # Or using installed CLI command
-check-compliance outputs/remediated_sample.pdf
+check-compliance outputs/remediated_physics.pdf
 ```
 
 ### Programmatic Python API

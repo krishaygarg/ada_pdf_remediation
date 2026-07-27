@@ -15,7 +15,7 @@ def main():
     
     # 1. Paths Setup
     workspace_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    pdf_path = os.path.join(workspace_dir, "samples", "test_sample", "test_sample.pdf")
+    pdf_path = os.path.join(workspace_dir, "samples", "physics", "physics.pdf")
     
     # Output directory relative to workspace root
     output_dir = os.path.join(workspace_dir, "outputs")
