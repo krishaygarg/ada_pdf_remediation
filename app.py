@@ -6,6 +6,7 @@ ADA PDF Remediator Web Application & REST API Server.
 import os
 import uuid
 from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 from remediator.config import LOCAL_TMP
@@ -16,6 +17,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
 app = Flask(__name__, static_folder=WEB_DIR, static_url_path="")
+CORS(app)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max limit
 
 TASKS_DIR = os.path.join(LOCAL_TMP, "tasks")

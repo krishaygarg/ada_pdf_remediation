@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTaskId = null;
     let currentOutputFilename = null;
 
+    const API_BASE = (window.location.hostname.includes('pages.dev'))
+        ? 'https://ada-pdf-remediator.onrender.com'
+        : '';
+
     // Trigger file browse
     browseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -98,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { setStep(4); addLog('Generating dynamic /ToUnicode font character maps...'); }, 4500);
 
         // Perform Upload
-        fetch('/api/remediate', {
+        fetch(`${API_BASE}/api/remediate`, {
             method: 'POST',
             body: formData
         })
@@ -141,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Download Button Action
     downloadBtn.addEventListener('click', () => {
         if (currentTaskId) {
-            window.location.href = `/api/download/${currentTaskId}`;
+            window.location.href = `${API_BASE}/api/download/${currentTaskId}`;
         }
     });
 
