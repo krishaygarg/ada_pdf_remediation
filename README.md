@@ -32,11 +32,7 @@ ADA_jun_23/
 │       ├── layout_reading_order_proposal.md  # Proposal for Layout & Reading Order recovery
 │       ├── alt_text_research_spec.md        # Spec for VLM-based figure Alt-Text generation
 │       └── research_timeline.md             # 3-Month research phase roadmap
-├── experimental/              # Experimental scripts (YOLO layout detection, VLM fine-tuning)
-│   ├── demo_yolo.py
-│   ├── draw_pdf_bboxes.py
-│   └── math_vlm/
-├── samples/                   # Test PDF samples
+├── samples/                   # Sample PDF files
 ├── check_compliance.py       # CLI runner for PDF accessibility audit
 ├── remediate_pdf.py           # CLI runner for PDF remediation pipeline
 ├── pyproject.toml             # Standard setuptools packaging metadata
@@ -119,7 +115,6 @@ We welcome open-source contributions! Active research proposals and tasks are do
    - Focus: Implementing Recursive XY-Cut, LLM perplexity flow-sorting, and VLM zero-shot alignment.
 
 2. **Image Alt-Text Generation** ([`docs/planning/alt_text_research_spec.md`](docs/planning/alt_text_research_spec.md))
-   - Code entrypoint: [`experimental/math_vlm/`](experimental/math_vlm/)
    - Focus: Evaluating micro-VLMs (Florence-2, Moondream2) for domain-specific chart/math equation description.
 
 For detailed guidelines on picking up these tasks, see [CONTRIBUTING.md](CONTRIBUTING.md).

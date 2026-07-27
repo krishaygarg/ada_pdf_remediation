@@ -45,9 +45,10 @@ htmlcov/
 ehthumbs.db
 Thumbs.db
 
-# Workspace temporary directory & generated PDF artifacts
+# Workspace temporary directory, experimental, & generated PDF artifacts
 tmp/
 outputs/
+experimental/
 *.log
 remediated_*.pdf
 *_with_bboxes.pdf

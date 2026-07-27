@@ -43,12 +43,11 @@ Our active research roadmap is organized into proposals and specs inside `docs/p
 
 ### B. Technical Image Alt-Text Generation
 - **Reference Spec**: [`docs/planning/alt_text_research_spec.md`](docs/planning/alt_text_research_spec.md)
-- **Target Folder**: [`experimental/math_vlm/`](experimental/math_vlm/)
 - **Goal**: Generate high-fidelity descriptions for mathematical formulas, charts, and diagrams extracted from PDFs.
 
 **Tasks to pick up**:
 1. **Family A (Quantized Micro-VLMs)**: Benchmark lightweight models (e.g. `microsoft/Florence-2-base`, Moondream2) on image crops of math formulas and line graphs.
-2. **Family B (Domain Fine-Tuning)**: Extend [`experimental/math_vlm/finetune.py`](experimental/math_vlm/finetune.py) to train PEFT/LoRA adapters on formula/chart datasets.
+2. **Family B (Domain Fine-Tuning)**: Implement PEFT/LoRA adapter training script on formula/chart datasets.
 3. **Family C (Router Classifier)**: Build a lightweight classifier (e.g., MobileNetV4) that routes figure crops to specialised micro-models (Math vs Chart vs Diagram).
 
 ---
