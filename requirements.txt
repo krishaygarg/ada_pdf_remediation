@@ -6,6 +6,8 @@ PyMuPDF>=1.22.0
 pillow>=9.5.0
 pdfminer.six>=20221105
 pytesseract>=0.3.10
+flask>=2.3.0
+gunicorn>=20.1.0
 
 # Optional experimental dependencies (uncomment if using YOLO / HuggingFace layout detection)
 # ultralytics>=8.0.0

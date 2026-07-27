@@ -1,0 +1,6 @@
+name = "ada-pdf-remediator"
+compatibility_date = "2026-07-27"
+pages_build_output_dir = "web"
+
+[site]
+bucket = "./web"
