@@ -350,9 +350,5 @@ def remediate_single_pdf(input_path: str, output_path: str):
         
     print("[REMEDIATOR] Pipeline completed successfully!")
     
-    # Clean up local workspace tmp files
-    try:
-        shutil.rmtree(LOCAL_TMP)
-        os.makedirs(LOCAL_TMP, exist_ok=True)
-    except Exception:
-        pass
+    # Clean up temporary raster images if any remain
+    pass

@@ -61,5 +61,6 @@ remediated_*.pdf
 # IDE & Editor files
 .idea/
 .vscode/
+.wrangler/
 *.swp
 *.swo

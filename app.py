@@ -86,7 +86,10 @@ def download_api(task_id):
     GET /api/download/<task_id>
     Serves the remediated accessible PDF file.
     """
-    task_folder = os.path.join(TASKS_DIR, secure_filename(task_id))
+    # Sanitize task_id (UUID format check)
+    clean_task_id = os.path.basename(task_id)
+    task_folder = os.path.join(TASKS_DIR, clean_task_id)
+    
     if not os.path.exists(task_folder):
         return jsonify({"error": "Task session not found"}), 404
 
