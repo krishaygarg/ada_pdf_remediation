@@ -84,40 +84,20 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                 t_lm = multiply_matrices([1.0, 0.0, 0.0, 1.0, tx_o, ty_o], t_lm)
                 t_m = list(t_lm)
                 
-            # Perform text content filtering/visibility check for text showing operators
+            # Perform text content visibility check for text showing operators
             if op_name in ('Tj', 'TJ', "'", '"'):
-                tx_c, ty_c = t_m[4], t_m[5]
-                x_pdf, y_pdf = transform_point(tx_c, ty_c, ctm)
-                
-                inside = False
-                for bbox in complex_bboxes_pdf_space:
-                    bx0, by0, bx1, by1 = bbox
-                    if bx0 <= x_pdf <= bx1 and by0 <= y_pdf <= by1:
-                        inside = True
-                        break
-                        
-                if inside:
-                    if op_name == 'Tj':
-                        operands[0] = pikepdf.String("")
-                    elif op_name == 'TJ':
-                        operands[0] = pikepdf.Array()
-                    elif op_name == "'":
-                        operands[0] = pikepdf.String("")
-                    elif op_name == '"':
-                        operands[2] = pikepdf.String("")
-                else:
-                    if op_name == 'Tj':
-                        if str(operands[0]).strip():
-                            has_visible_text = True
-                    elif op_name == 'TJ':
-                        for item in operands[0]:
-                            if isinstance(item, pikepdf.String):
-                                if str(item).strip():
-                                    has_visible_text = True
-                                    break
-                    elif op_name in ("'", '"'):
-                        if str(operands[-1]).strip():
-                            has_visible_text = True
+                if op_name == 'Tj':
+                    if str(operands[0]).strip():
+                        has_visible_text = True
+                elif op_name == 'TJ':
+                    for item in operands[0]:
+                        if isinstance(item, pikepdf.String):
+                            if str(item).strip():
+                                has_visible_text = True
+                                break
+                elif op_name in ("'", '"'):
+                    if str(operands[-1]).strip():
+                        has_visible_text = True
                             
             if op_name == 'ET':
                 in_text_block = False

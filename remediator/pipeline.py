@@ -70,19 +70,18 @@ def remediate_single_pdf(input_path: str, output_path: str):
             for t in tables:
                 bboxes.append(list(t.bbox))
                 
-            # Detect drawings
-            for draw_type in ['rects', 'lines', 'curves', 'images']:
-                elements = getattr(plumbpage, draw_type, [])
-                for elem in elements:
-                    x0 = float(elem.get('x0', 0))
-                    top = float(elem.get('top', 0))
-                    x1 = float(elem.get('x1', 0))
-                    bottom = float(elem.get('bottom', 0))
-                    w = x1 - x0
-                    h = bottom - top
-                    if w < 3 and h < 3:
-                        continue
-                    bboxes.append([x0, top, x1, bottom])
+            # Detect standalone raster image objects
+            images = getattr(plumbpage, 'images', [])
+            for elem in images:
+                x0 = float(elem.get('x0', 0))
+                top = float(elem.get('top', 0))
+                x1 = float(elem.get('x1', 0))
+                bottom = float(elem.get('bottom', 0))
+                w = x1 - x0
+                h = bottom - top
+                if w < 5 and h < 5:
+                    continue
+                bboxes.append([x0, top, x1, bottom])
                     
             # Merge overlapping bboxes
             merged_bboxes = merge_bboxes(bboxes)
