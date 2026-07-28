@@ -55,8 +55,9 @@ def remediate_single_pdf(input_path: str, output_path: str):
             page_width = float(plumbpage.width)
             page_height = float(plumbpage.height)
             
-            # Assign page structural index
+            # Assign page structural index and keyboard tab navigation order (WCAG 2.4.3 & 1.3.1)
             pikepage["/StructParents"] = pikepdf.Integer(page_idx)
+            pikepage["/Tabs"] = pikepdf.Name("/S")
             
             # 2. SEGMENTATION & COORDINATE EXTRACTION
             bboxes = []
@@ -97,6 +98,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
             final_ops = []
             mcid = 0
             page_struct_elems = []
+            first_text_in_page = True
             
             # Prepend 'q' to isolate original page coordinates
             final_ops.append(([], pikepdf.Operator("q")))
@@ -106,15 +108,36 @@ def remediate_single_pdf(input_path: str, output_path: str):
             if generator:
                 for item_type, data in generator:
                     if item_type == 'text':
-                        # Wrap text block in /P << /MCID mcid >> BDC
-                        final_ops.append(([pikepdf.Name("/P"), pikepdf.Dictionary(MCID=mcid)], pikepdf.Operator("BDC")))
+                        # Classify text block as /H1, /H2, or /P for WCAG 1.3.1 Info and Relationships
+                        tag_name = "/P"
+                        text_preview = ""
+                        for op_data in data:
+                            if len(op_data) == 2:
+                                ops, op = op_data
+                                op_str = str(op)
+                                if op_str == 'Tj':
+                                    text_preview += str(ops[0])
+                                elif op_str == 'TJ':
+                                    for item in ops[0]:
+                                        if isinstance(item, pikepdf.String):
+                                            text_preview += str(item)
+                        text_preview = text_preview.strip()
+
+                        if first_text_in_page and page_idx == 0:
+                            tag_name = "/H1"
+                            first_text_in_page = False
+                        elif text_preview in ("References", "Abstract", "Introduction", "Conclusion", "Methodology", "Results", "Discussion", "Background"):
+                            tag_name = "/H2"
+
+                        # Wrap text block in /Tag << /MCID mcid >> BDC
+                        final_ops.append(([pikepdf.Name(tag_name), pikepdf.Dictionary(MCID=mcid)], pikepdf.Operator("BDC")))
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
                         
-                        # Create structural P tag
+                        # Create structural element
                         p_elem = pdf.make_indirect(pikepdf.Dictionary(
                             Type=pikepdf.Name("/StructElem"),
-                            S=pikepdf.Name("/P"),
+                            S=pikepdf.Name(tag_name),
                             P=document_elem,
                             Pg=pikepage.obj,
                             K=pikepdf.Integer(mcid)
@@ -131,6 +154,25 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         final_ops.append(([], pikepdf.Operator("EMC")))
                     else: # other
                         final_ops.append(data)
+                        
+            # Tag Link Annotations on page for WCAG 1.3.1 & WCAG 2.4.4
+            if "/Annots" in pikepage:
+                for annot in pikepage.Annots:
+                    if isinstance(annot, pikepdf.Dictionary) and annot.get("/Subtype") == pikepdf.Name("/Link"):
+                        annot["/StructParent"] = pikepdf.Integer(page_idx)
+                        link_elem = pdf.make_indirect(pikepdf.Dictionary(
+                            Type=pikepdf.Name("/StructElem"),
+                            S=pikepdf.Name("/Link"),
+                            P=document_elem,
+                            Pg=pikepage.obj,
+                            K=pikepdf.Dictionary(
+                                Type=pikepdf.Name("/OBJR"),
+                                Obj=annot,
+                                Pg=pikepage.obj
+                            )
+                        ))
+                        document_elem.K.append(link_elem)
+                        page_struct_elems.append(link_elem)
                         
             # Check if page is a scanned document (lacks live text operators)
             page_text = (plumbpage.extract_text() or "").strip()
@@ -239,11 +281,22 @@ def remediate_single_pdf(input_path: str, output_path: str):
             parent_tree_nums.append(pikepdf.Integer(idx))
             parent_tree_nums.append(pdf.make_indirect(pikepdf.Array(page_elems)))
             
+        role_map = pikepdf.Dictionary({
+            pikepdf.Name("/Document"): pikepdf.Name("/Document"),
+            pikepdf.Name("/H1"): pikepdf.Name("/H1"),
+            pikepdf.Name("/H2"): pikepdf.Name("/H2"),
+            pikepdf.Name("/P"): pikepdf.Name("/P"),
+            pikepdf.Name("/Figure"): pikepdf.Name("/Figure"),
+            pikepdf.Name("/Link"): pikepdf.Name("/Link"),
+            pikepdf.Name("/Artifact"): pikepdf.Name("/Artifact")
+        })
+        
         parent_tree = pdf.make_indirect(pikepdf.Dictionary(Nums=parent_tree_nums))
         struct_tree_root = pdf.make_indirect(pikepdf.Dictionary(
             Type=pikepdf.Name("/StructTreeRoot"),
             K=document_elem,
-            ParentTree=parent_tree
+            ParentTree=parent_tree,
+            RoleMap=role_map
         ))
         document_elem.P = struct_tree_root
         root.StructTreeRoot = struct_tree_root
