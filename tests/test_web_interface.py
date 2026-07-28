@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import json
 import re
-from itertools import pairwise
 from html.parser import HTMLParser
+from itertools import pairwise
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
