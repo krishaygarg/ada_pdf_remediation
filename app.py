@@ -5,23 +5,24 @@ ADA PDF Remediator Web Application & REST API Server.
 
 import os
 import uuid
-from flask import Flask, request, jsonify, send_file, send_from_directory
+
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-from remediator.config import LOCAL_TMP
-from remediator.pipeline import remediate_single_pdf
-from remediator.compliance import run_compliance_check
 from remediator.axescheck import audit_pdf_axescheck
+from remediator.compliance import run_compliance_check
+from remediator.config import ensure_tmp_dir
+from remediator.pipeline import remediate_single_pdf
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
 app = Flask(__name__, static_folder=WEB_DIR, static_url_path="")
 CORS(app)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB max limit
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB max limit
 
-TASKS_DIR = os.path.join(LOCAL_TMP, "tasks")
+TASKS_DIR = os.path.join(str(ensure_tmp_dir()), "tasks")
 os.makedirs(TASKS_DIR, exist_ok=True)
 
 
@@ -31,16 +32,33 @@ def index():
     return send_from_directory(WEB_DIR, "index.html")
 
 
+def _build_commit():
+    """Resolve the commit this process was built from.
+
+    The value is read from the environment so it reflects the running build.
+    A hardcoded fallback would report a stale commit forever and silently
+    defeat the purpose of exposing it.
+    """
+    for key in ("GIT_COMMIT", "RENDER_GIT_COMMIT", "CF_PAGES_COMMIT_SHA", "SOURCE_COMMIT"):
+        value = os.environ.get(key)
+        if value and value != "unknown":
+            return value
+    return "unknown"
+
+
 @app.route("/health")
 def health():
     """Health check endpoint for deployment monitoring."""
-    git_hash = os.environ.get("RENDER_GIT_COMMIT", os.environ.get("CF_PAGES_COMMIT_SHA", "8b4e2ff"))
-    return jsonify({
-        "status": "healthy",
-        "service": "ADA PDF Remediator API",
-        "commit": git_hash,
-        "version": "1.0.1"
-    })
+    from remediator import __version__
+
+    return jsonify(
+        {
+            "status": "healthy",
+            "service": "ADA PDF Remediator API",
+            "commit": _build_commit(),
+            "version": __version__,
+        }
+    )
 
 
 @app.route("/api/remediate", methods=["POST"])
@@ -76,13 +94,15 @@ def remediate_api():
         # Run compliance auditor
         is_compliant = run_compliance_check(output_path, verbose=False)
 
-        return jsonify({
-            "status": "success",
-            "task_id": task_id,
-            "filename": filename,
-            "output_filename": f"remediated_{filename}",
-            "compliant": is_compliant
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "task_id": task_id,
+                "filename": filename,
+                "output_filename": f"remediated_{filename}",
+                "compliant": is_compliant,
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -96,7 +116,7 @@ def download_api(task_id):
     # Sanitize task_id (UUID format check)
     clean_task_id = os.path.basename(task_id)
     task_folder = os.path.join(TASKS_DIR, clean_task_id)
-    
+
     if not os.path.exists(task_folder):
         return jsonify({"error": "Task session not found"}), 404
 
@@ -106,6 +126,7 @@ def download_api(task_id):
 
     output_path = os.path.join(task_folder, files[0])
     return send_file(output_path, as_attachment=True, download_name=files[0])
+
 
 @app.route("/api/axescheck", methods=["POST"])
 def axescheck_api():
