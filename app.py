@@ -34,7 +34,13 @@ def index():
 @app.route("/health")
 def health():
     """Health check endpoint for deployment monitoring."""
-    return jsonify({"status": "healthy", "service": "ADA PDF Remediator API"})
+    git_hash = os.environ.get("RENDER_GIT_COMMIT", os.environ.get("CF_PAGES_COMMIT_SHA", "8b4e2ff"))
+    return jsonify({
+        "status": "healthy",
+        "service": "ADA PDF Remediator API",
+        "commit": git_hash,
+        "version": "1.0.1"
+    })
 
 
 @app.route("/api/remediate", methods=["POST"])
