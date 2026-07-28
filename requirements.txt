@@ -1,15 +1,23 @@
-# Core dependencies
-pikepdf>=8.0.0
-pdfplumber>=0.10.0
-pdf2image>=1.16.3
-PyMuPDF>=1.22.0
-pillow>=9.5.0
-pdfminer.six>=20221105
-pytesseract>=0.3.10
-flask>=2.3.0
-gunicorn>=20.1.0
-flask-cors>=3.0.0
+# Runtime dependencies for the container and the hosted deployment.
+#
+# pyproject.toml is the source of truth for library consumers; this file pins
+# the deployment surface, which includes the optional OCR and web extras.
+# Upper bounds are set at the next major version so an unattended rebuild
+# cannot pick up a breaking release.
 
-# Optional experimental dependencies (uncomment if using YOLO / HuggingFace layout detection)
-# ultralytics>=8.0.0
-# huggingface-hub>=0.16.0
+# Core PDF stack
+pikepdf>=8.0.0,<11
+pdfplumber>=0.10.0,<0.12
+PyMuPDF>=1.22.0,<2
+pillow>=9.5.0,<12
+pdfminer.six>=20221105
+fonttools>=4.40.0,<5
+
+# OCR fallback for scanned documents
+pytesseract>=0.3.10,<0.4
+pdf2image>=1.16.3,<2
+
+# Web interface and API
+flask>=2.3.0,<4
+flask-cors>=4.0.0,<7
+gunicorn>=21.2.0,<24
