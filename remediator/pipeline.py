@@ -137,7 +137,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
             if len(page_text) < 10:
                 print(f"  - Scanned image page detected! Generating invisible OCR text layer...")
                 ocr_ops, ocr_elems, mcid = generate_ocr_text_ops(
-                    input_path, page_idx, page_width, page_height, mcid, pdf, document_elem
+                    input_path, page_idx, page_width, page_height, mcid, pdf, pikepage, document_elem
                 )
                 if ocr_ops:
                     final_ops.extend(ocr_ops)

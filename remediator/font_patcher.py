@@ -107,6 +107,10 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
             print(f"[OCR] Error during OCR fallback for font {font_name}: {e}")
 
     # Build CMap
+    max_code = max(mapping.keys()) if mapping else 255
+    use_2byte = max_code > 255
+    codespace = "<0000> <FFFF>" if use_2byte else "<00> <FF>"
+
     cmap = (
         "/CIDInit /ProcSet findresource begin\n"
         "12 dict begin\n"
@@ -114,7 +118,7 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
         "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
         "/CMapName /Custom-ToUnicode def\n"
         "/CMapType 2 def\n"
-        "1 begincodespacerange <00> <FF> endcodespacerange\n"
+        f"1 begincodespacerange {codespace} endcodespacerange\n"
     )
     
     if mapping:
@@ -123,12 +127,14 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
             if not char_str: char_str = " "
             try:
                 hex_str = char_str.encode('utf-16-be').hex().upper()
-                cmap += f"<{code:02X}> <{hex_str}>\n"
+                code_fmt = f"<{code:04X}>" if use_2byte else f"<{code:02X}>"
+                cmap += f"{code_fmt} <{hex_str}>\n"
             except Exception:
-                cmap += f"<{code:02X}> <0020>\n"
+                code_fmt = f"<{code:04X}>" if use_2byte else f"<{code:02X}>"
+                cmap += f"{code_fmt} <0020>\n"
         cmap += "endbfchar\n"
     else:
-        cmap += "1 beginbfrange <00> <FF> <0000> endbfrange\n"
+        cmap += f"1 beginbfrange {codespace} <0000> endbfrange\n"
         
     cmap += (
         "endcmap\n"

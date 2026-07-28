@@ -13,7 +13,7 @@ from PIL import Image
 from .config import LOCAL_TMP
 
 
-def generate_ocr_text_ops(pdf_path: str, page_idx: int, page_width: float, page_height: float, start_mcid: int, pdf_doc, document_elem):
+def generate_ocr_text_ops(pdf_path: str, page_idx: int, page_width: float, page_height: float, start_mcid: int, pdf_doc, pikepage, document_elem):
     """
     Runs Tesseract OCR on a scanned page image and returns (ocr_ops, page_struct_elems, next_mcid).
     Injects text in invisible rendering mode (3 Tr) so text is 100% highlightable, searchable, and accessible.
@@ -23,6 +23,21 @@ def generate_ocr_text_ops(pdf_path: str, page_idx: int, page_width: float, page_
     mcid = start_mcid
 
     try:
+        # Register /Helvetica font in page resources
+        if "/Resources" not in pikepage:
+            pikepage.Resources = pikepdf.Dictionary()
+        if "/Font" not in pikepage.Resources:
+            pikepage.Resources.Font = pikepdf.Dictionary()
+
+        if "/Helvetica" not in pikepage.Resources.Font:
+            helvetica_font = pdf_doc.make_indirect(pikepdf.Dictionary(
+                Type=pikepdf.Name("/Font"),
+                Subtype=pikepdf.Name("/Type1"),
+                BaseFont=pikepdf.Name("/Helvetica"),
+                Encoding=pikepdf.Name("/WinAnsiEncoding")
+            ))
+            pikepage.Resources.Font["/Helvetica"] = helvetica_font
+
         # Render single page at 200 DPI for high-accuracy OCR
         images = convert_from_path(pdf_path, dpi=200, first_page=page_idx + 1, last_page=page_idx + 1, output_folder=LOCAL_TMP)
         if not images:
