@@ -66,11 +66,13 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
     # Phase 0: Parse existing /ToUnicode stream if present
     if "/ToUnicode" in font_obj:
         try:
-            raw_bytes = font_obj.ToUnicode.read_bytes()
-            existing_map = parse_existing_tounicode(raw_bytes)
-            if existing_map:
-                mapping.update(existing_map)
-                print(f"      * Extracted {len(existing_map)} existing /ToUnicode CMap entries for {font_name}.")
+            to_uni = font_obj["/ToUnicode"]
+            if hasattr(to_uni, "read_bytes"):
+                raw_bytes = to_uni.read_bytes()
+                existing_map = parse_existing_tounicode(raw_bytes)
+                if existing_map:
+                    mapping.update(existing_map)
+                    print(f"      * Extracted {len(existing_map)} existing /ToUnicode CMap entries for {font_name}.")
         except Exception:
             pass
 

@@ -128,23 +128,31 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         
             # Tag Link Annotations on page for WCAG 1.3.1 & WCAG 2.4.4
             if "/Annots" in pikepage:
-                for annot in pikepage.Annots:
-                    if isinstance(annot, pikepdf.Dictionary) and annot.get("/Subtype") == pikepdf.Name("/Link"):
-                        annot["/StructParent"] = pikepdf.Integer(page_idx)
-                        link_elem = pdf.make_indirect(pikepdf.Dictionary(
-                            Type=pikepdf.Name("/StructElem"),
-                            S=pikepdf.Name("/Link"),
-                            P=document_elem,
-                            Pg=pikepage.obj,
-                            Alt=pikepdf.String("Hyperlink"),
-                            K=pikepdf.Dictionary(
-                                Type=pikepdf.Name("/OBJR"),
-                                Obj=annot,
-                                Pg=pikepage.obj
-                            )
-                        ))
-                        document_elem.K.append(link_elem)
-                        page_struct_elems.append(link_elem)
+                try:
+                    annots = pikepage.Annots
+                    if isinstance(annots, pikepdf.Array):
+                        for annot in annots:
+                            try:
+                                if hasattr(annot, "get") and annot.get("/Subtype") == pikepdf.Name("/Link"):
+                                    annot["/StructParent"] = pikepdf.Integer(page_idx)
+                                    link_elem = pdf.make_indirect(pikepdf.Dictionary(
+                                        Type=pikepdf.Name("/StructElem"),
+                                        S=pikepdf.Name("/Link"),
+                                        P=document_elem,
+                                        Pg=pikepage.obj,
+                                        Alt=pikepdf.String("Hyperlink"),
+                                        K=pikepdf.Dictionary(
+                                            Type=pikepdf.Name("/OBJR"),
+                                            Obj=annot,
+                                            Pg=pikepage.obj
+                                        )
+                                    ))
+                                    document_elem.K.append(link_elem)
+                                    page_struct_elems.append(link_elem)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
 
             # Append 'Q' wrapped in /Artifact marked content
             final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
@@ -176,19 +184,29 @@ def remediate_single_pdf(input_path: str, output_path: str):
             
         # 5. GLOBAL BRUTE-FORCE METADATA INJECTION
         # Set Reading Language
-        root.Lang = pikepdf.String("en-US")
+        root["/Lang"] = pikepdf.String("en-US")
         
         # Display Title in Preferences
-        if "/ViewerPreferences" not in root:
-            root.ViewerPreferences = pikepdf.Dictionary(DisplayDocTitle=True)
-        else:
-            root.ViewerPreferences.DisplayDocTitle = True
+        try:
+            if "/ViewerPreferences" not in root:
+                root["/ViewerPreferences"] = pikepdf.Dictionary(DisplayDocTitle=True)
+            else:
+                vp = root["/ViewerPreferences"]
+                if isinstance(vp, pikepdf.Dictionary):
+                    vp["/DisplayDocTitle"] = True
+                else:
+                    root["/ViewerPreferences"] = pikepdf.Dictionary(DisplayDocTitle=True)
+        except Exception:
+            root["/ViewerPreferences"] = pikepdf.Dictionary(DisplayDocTitle=True)
             
         # Ensure title exists in Info dict
         title = "Accessible Document"
-        if "/Title" in pdf.docinfo and str(pdf.docinfo.Title).strip():
-            title = str(pdf.docinfo.Title)
-        else:
+        try:
+            if "/Title" in pdf.docinfo and str(pdf.docinfo.Title).strip():
+                title = str(pdf.docinfo.Title)
+            else:
+                pdf.docinfo["/Title"] = title
+        except Exception:
             pdf.docinfo["/Title"] = title
             
         pdf.docinfo["/Producer"] = "ADA PDF Remediator"
@@ -251,7 +269,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
         meta_stream = pikepdf.Stream(pdf, xmp_template.encode("utf-8"))
         meta_stream.Type = pikepdf.Name("/Metadata")
         meta_stream.Subtype = pikepdf.Name("/XML")
-        root.Metadata = meta_stream
+        root["/Metadata"] = meta_stream
         
         # Build ParentTree structure
         parent_tree_nums = pikepdf.Array()
@@ -265,18 +283,40 @@ def remediate_single_pdf(input_path: str, output_path: str):
             K=document_elem,
             ParentTree=parent_tree
         ))
-        document_elem.P = struct_tree_root
-        root.StructTreeRoot = struct_tree_root
+        document_elem["/P"] = struct_tree_root
+        root["/StructTreeRoot"] = struct_tree_root
         
         print(f"[REMEDIATOR] Patching missing font /ToUnicode CMap character mappings...")
-        font_objs = [obj for obj in pdf.objects if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name("/Font")]
+        font_objs = []
+        try:
+            for page in pdf.pages:
+                if "/Resources" in page:
+                    res = page.Resources
+                    if isinstance(res, pikepdf.Dictionary) and "/Font" in res:
+                        fonts_dict = res.Font
+                        if isinstance(fonts_dict, pikepdf.Dictionary):
+                            for k in fonts_dict.keys():
+                                try:
+                                    f_obj = fonts_dict[k]
+                                    if f_obj not in font_objs:
+                                        font_objs.append(f_obj)
+                                except Exception:
+                                    pass
+        except Exception:
+            pass
+
         for idx, obj in enumerate(font_objs):
-            if "/ToUnicode" not in obj:
-                base_font = str(obj.get("/BaseFont", "Unknown"))
-                print(f"  - Patching font {idx} ({base_font})...")
-                generated_cmap = generate_tounicode_cmap(obj, base_font, input_path)
-                cmap_stream = pikepdf.Stream(pdf, generated_cmap.encode("utf-8"))
-                obj.ToUnicode = cmap_stream
+            try:
+                if isinstance(obj, pikepdf.Dictionary) and "/ToUnicode" not in obj:
+                    base_font = "Unknown"
+                    if "/BaseFont" in obj:
+                        base_font = str(obj.get("/BaseFont", "Unknown"))
+                    print(f"  - Patching font {idx} ({base_font})...")
+                    generated_cmap = generate_tounicode_cmap(obj, base_font, input_path)
+                    cmap_stream = pikepdf.Stream(pdf, generated_cmap.encode("utf-8"))
+                    obj["/ToUnicode"] = cmap_stream
+            except Exception as e:
+                print(f"  - Skipping font {idx} due to error: {e}")
                         
         print(f"[REMEDIATOR] Saving remediated PDF output: {output_path}")
         pdf.save(output_path)
