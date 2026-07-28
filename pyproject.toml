@@ -150,7 +150,6 @@ ignore = [
 "remediator/ocr_engine.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001", "F841"]
 "remediator/axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
 "remediator/utils.py" = ["RET", "SIM"]
-"app.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
 "mcp_server_axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
 
 # Owned by the research track described in docs/planning/. The function bodies
@@ -179,6 +178,8 @@ files = [
     "remediator/cli",
     "remediator/audit",
     "remediator/contrast",
+    "remediator/progress.py",
+    "remediator/service",
     "remediator/alttext",
     "remediator/fonts",
     "remediator/geometry",
