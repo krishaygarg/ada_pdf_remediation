@@ -25,6 +25,8 @@ def main():
     try:
         remediate_single_pdf(args.input_pdf, args.output_pdf)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"\033[91mRemediation failed: {e}\033[0m", file=sys.stderr)
         sys.exit(1)
 

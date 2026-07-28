@@ -4,18 +4,15 @@ import shutil
 import pikepdf
 import pdfplumber
 from datetime import datetime, timezone
-from pdf2image import convert_from_path
-from PIL import Image
 
 from .config import LOCAL_TMP
 from .utils import merge_bboxes
 from .content_filter import filter_page_content
 from .font_patcher import generate_tounicode_cmap
-from .ocr_engine import generate_ocr_text_ops
 
 def remediate_single_pdf(input_path: str, output_path: str):
     """
-    Performs Flatten-to-Figures PDF accessibility remediation.
+    Performs PDF accessibility remediation.
     """
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input PDF not found: {input_path}")
@@ -60,39 +57,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
             pikepage["/Tabs"] = pikepdf.Name("/S")
             
             # 2. SEGMENTATION & COORDINATE EXTRACTION
-            bboxes = []
-            
-            # Detect tables
-            tables = plumbpage.find_tables()
-            for t in tables:
-                bboxes.append(list(t.bbox))
-                
-            # Detect standalone raster image objects
-            images = getattr(plumbpage, 'images', [])
-            for elem in images:
-                x0 = float(elem.get('x0', 0))
-                top = float(elem.get('top', 0))
-                x1 = float(elem.get('x1', 0))
-                bottom = float(elem.get('bottom', 0))
-                w = x1 - x0
-                h = bottom - top
-                if w < 5 and h < 5:
-                    continue
-                bboxes.append([x0, top, x1, bottom])
-                    
-            # Merge overlapping bboxes
-            merged_bboxes = merge_bboxes(bboxes)
-            print(f"  - Detected {len(merged_bboxes)} complex components to flatten.")
-            
-            # Convert merged bboxes to PDF bottom-left coordinates
             complex_bboxes_pdf = []
-            for bbox in merged_bboxes:
-                x0, top, x1, bottom = bbox
-                pdf_x0 = x0
-                pdf_x1 = x1
-                pdf_y0 = page_height - bottom
-                pdf_y1 = page_height - top
-                complex_bboxes_pdf.append([pdf_x0, pdf_y0, pdf_x1, pdf_y1])
                 
             # Reconstruct content stream
             final_ops = []
@@ -190,6 +155,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
             page_text = (plumbpage.extract_text() or "").strip()
             if len(page_text) < 10:
                 print(f"  - Scanned image page detected! Generating invisible OCR text layer...")
+                from .ocr_engine import generate_ocr_text_ops
                 ocr_ops, ocr_elems, mcid = generate_ocr_text_ops(
                     input_path, page_idx, page_width, page_height, mcid, pdf, pikepage, document_elem
                 )
@@ -291,51 +257,26 @@ def remediate_single_pdf(input_path: str, output_path: str):
         parent_tree_nums = pikepdf.Array()
         for idx, page_elems in enumerate(all_pages_struct_elems):
             parent_tree_nums.append(pikepdf.Integer(idx))
-            parent_tree_nums.append(pdf.make_indirect(pikepdf.Array(page_elems)))
+            parent_tree_nums.append(pikepdf.Array(page_elems))
             
-        role_map = pikepdf.Dictionary({
-            pikepdf.Name("/Document"): pikepdf.Name("/Document"),
-            pikepdf.Name("/H1"): pikepdf.Name("/H1"),
-            pikepdf.Name("/H2"): pikepdf.Name("/H2"),
-            pikepdf.Name("/P"): pikepdf.Name("/P"),
-            pikepdf.Name("/Figure"): pikepdf.Name("/Figure"),
-            pikepdf.Name("/Link"): pikepdf.Name("/Link"),
-            pikepdf.Name("/Artifact"): pikepdf.Name("/Artifact")
-        })
-        
         parent_tree = pdf.make_indirect(pikepdf.Dictionary(Nums=parent_tree_nums))
         struct_tree_root = pdf.make_indirect(pikepdf.Dictionary(
             Type=pikepdf.Name("/StructTreeRoot"),
             K=document_elem,
-            ParentTree=parent_tree,
-            RoleMap=role_map
+            ParentTree=parent_tree
         ))
         document_elem.P = struct_tree_root
         root.StructTreeRoot = struct_tree_root
         
-        # Fix missing /ToUnicode mappings for fonts
-        font_tounicode = {}
-        for obj in pdf.objects:
-            if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name("/Font"):
-                base_font = str(obj.get("/BaseFont", ""))
-                if base_font and "/ToUnicode" in obj:
-                    font_tounicode[base_font] = obj.ToUnicode
-                    
-        print(f"[REMEDIATOR] Patching missing /ToUnicode mappings...")
-        for idx, obj in enumerate(pdf.objects):
-            if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name("/Font"):
-                base_font = str(obj.get("/BaseFont", ""))
-                if "/ToUnicode" not in obj:
-                    print(f"  - Font {idx} ({base_font}) missing /ToUnicode.")
-                    if base_font and base_font in font_tounicode:
-                        print(f"    * Using cached mapping for {base_font}")
-                        obj.ToUnicode = font_tounicode[base_font]
-                    else:
-                        print(f"    * Generating dynamic CMap for {base_font}...")
-                        generated_cmap = generate_tounicode_cmap(obj, base_font, input_path)
-                        print(f"    * Injecting stream for {base_font}...")
-                        cmap_stream = pikepdf.Stream(pdf, generated_cmap.encode("utf-8"))
-                        obj.ToUnicode = cmap_stream
+        print(f"[REMEDIATOR] Patching missing font /ToUnicode CMap character mappings...")
+        font_objs = [obj for obj in pdf.objects if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name("/Font")]
+        for idx, obj in enumerate(font_objs):
+            if "/ToUnicode" not in obj:
+                base_font = str(obj.get("/BaseFont", "Unknown"))
+                print(f"  - Patching font {idx} ({base_font})...")
+                generated_cmap = generate_tounicode_cmap(obj, base_font, input_path)
+                cmap_stream = pikepdf.Stream(pdf, generated_cmap.encode("utf-8"))
+                obj.ToUnicode = cmap_stream
                         
         print(f"[REMEDIATOR] Saving remediated PDF output: {output_path}")
         pdf.save(output_path)

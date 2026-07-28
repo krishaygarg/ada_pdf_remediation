@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from remediator.config import LOCAL_TMP
 from remediator.pipeline import remediate_single_pdf
 from remediator.compliance import run_compliance_check
+from remediator.axescheck import audit_pdf_axescheck
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, "web")
@@ -99,6 +100,25 @@ def download_api(task_id):
 
     output_path = os.path.join(task_folder, files[0])
     return send_file(output_path, as_attachment=True, download_name=files[0])
+
+@app.route("/api/axescheck", methods=["POST"])
+def axescheck_api():
+    """
+    POST /api/axescheck
+    Runs check.axes4.com audit on uploaded PDF.
+    """
+    file = request.files.get("pdf") or request.files.get("file")
+    if not file or file.filename == "":
+        return jsonify({"error": "No PDF file provided"}), 400
+
+    task_id = str(uuid.uuid4())
+    task_folder = os.path.join(TASKS_DIR, task_id)
+    os.makedirs(task_folder, exist_ok=True)
+    input_path = os.path.join(task_folder, secure_filename(file.filename))
+    file.save(input_path)
+
+    res = audit_pdf_axescheck(input_path)
+    return jsonify(res)
 
 
 @app.route("/<path:path>")

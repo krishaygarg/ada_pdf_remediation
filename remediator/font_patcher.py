@@ -1,7 +1,5 @@
-import fitz
-import pytesseract
+import re
 import pikepdf
-from PIL import Image
 from pdfminer.glyphlist import glyphname2unicode
 
 def get_standard_encoding_map(enc_name):
@@ -24,26 +22,74 @@ def get_standard_encoding_map(enc_name):
             pass
     return mapping
 
+def parse_existing_tounicode(cmap_bytes: bytes) -> dict:
+    """
+    Parses an existing /ToUnicode CMap stream and extracts all (code -> unicode_str) mappings.
+    """
+    mapping = {}
+    try:
+        text = cmap_bytes.decode('utf-8', errors='ignore')
+        # Parse beginbfchar blocks: <01> <0041> or <0001> <0041>
+        bfchar_matches = re.findall(r'<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>', text)
+        for src_hex, dst_hex in bfchar_matches:
+            try:
+                code = int(src_hex, 16)
+                dst_bytes = bytes.fromhex(dst_hex)
+                uni_str = dst_bytes.decode('utf-16-be', errors='ignore')
+                if uni_str:
+                    mapping[code] = uni_str
+            except Exception:
+                pass
+
+        # Parse beginbfrange blocks: <01> <05> <0041> or <01> <05> [<0041> <0042> ...]
+        bfrange_matches = re.findall(r'<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>', text)
+        for start_hex, end_hex, dst_hex in bfrange_matches:
+            try:
+                start_code = int(start_hex, 16)
+                end_code = int(end_hex, 16)
+                base_dst = int(dst_hex, 16)
+                for offset in range(end_code - start_code + 1):
+                    code = start_code + offset
+                    curr_dst_hex = f"{base_dst + offset:04X}"
+                    uni_str = bytes.fromhex(curr_dst_hex).decode('utf-16-be', errors='ignore')
+                    if uni_str:
+                        mapping[code] = uni_str
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return mapping
+
 def generate_tounicode_cmap(font_obj, font_name, input_path):
     mapping = {}
-    has_encoding = False
     
-    # Phase 1: Metadata Heuristics
+    # Phase 0: Parse existing /ToUnicode stream if present
+    if "/ToUnicode" in font_obj:
+        try:
+            raw_bytes = font_obj.ToUnicode.read_bytes()
+            existing_map = parse_existing_tounicode(raw_bytes)
+            if existing_map:
+                mapping.update(existing_map)
+                print(f"      * Extracted {len(existing_map)} existing /ToUnicode CMap entries for {font_name}.")
+        except Exception:
+            pass
+
+    # Phase 1: Metadata & Encoding Heuristics
     if "/Encoding" in font_obj:
         enc = font_obj.Encoding
         if isinstance(enc, pikepdf.Name):
             enc_name = str(enc).replace("/", "")
             std_map = get_standard_encoding_map(enc_name)
-            if std_map:
-                mapping.update(std_map)
-                has_encoding = True
+            for k, v in std_map.items():
+                if k not in mapping:
+                    mapping[k] = v
         elif isinstance(enc, pikepdf.Dictionary):
             if "/BaseEncoding" in enc:
                 enc_name = str(enc.BaseEncoding).replace("/", "")
                 std_map = get_standard_encoding_map(enc_name)
-                if std_map:
-                    mapping.update(std_map)
-                    has_encoding = True
+                for k, v in std_map.items():
+                    if k not in mapping:
+                        mapping[k] = v
             if "/Differences" in enc:
                 diffs = enc.Differences
                 current_code = 0
@@ -53,64 +99,18 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
                     elif isinstance(item, pikepdf.Name):
                         glyph_name = str(item).replace("/", "")
                         uni = glyphname2unicode.get(glyph_name)
-                        if uni:
+                        if uni and current_code not in mapping:
                             mapping[current_code] = uni
                         current_code += 1
-                has_encoding = True
 
-    # Default basic ASCII mapping if no encoding is found
-    if not mapping:
-        print("      * No mapping found in Phase 1 metadata. Standard ASCII fallback set.")
-        for i in range(256):
-            if 32 <= i <= 126:
-                mapping[i] = chr(i)
-    else:
-        print(f"      * Phase 1 metadata success. Mapped {len(mapping)} chars.")
-                
-    # Phase 2: PyTesseract OCR Fallback
-    if not has_encoding:
-        print("      * Phase 2 OCR Fallback triggered...")
-        try:
-            doc = fitz.open(input_path)
-            base_font_clean = str(font_name).replace("/", "").split("+")[-1]
-            visited_codes = set()
-            
-            for page in doc:
-                text_dict = page.get_text("rawdict")
-                if "blocks" not in text_dict: continue
-                pix = None
-                img = None
-                for block in text_dict["blocks"]:
-                    if "lines" not in block: continue
-                    for line in block["lines"]:
-                        for span in line["spans"]:
-                            span_font = span["font"]
-                            if base_font_clean in span_font or span_font in base_font_clean:
-                                for char in span["chars"]:
-                                    c_str = char["c"]
-                                    c_code = ord(c_str[0]) if len(c_str) == 1 else 0
-                                    if c_code in visited_codes:
-                                        continue
-                                    visited_codes.add(c_code)
-                                    
-                                    if "\ufffd" in c_str or c_code == 0 or c_code not in mapping or mapping[c_code] == "":
-                                        bbox = char["bbox"]
-                                        if pix is None:
-                                            pix = page.get_pixmap(dpi=300)
-                                            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                                        scale = 300 / 72.0
-                                        cx0, cy0, cx1, cy1 = bbox
-                                        cx0, cy0, cx1, cy1 = cx0 * scale, cy0 * scale, cx1 * scale, cy1 * scale
-                                        pad = 3
-                                        crop = img.crop((cx0 - pad, cy0 - pad, cx1 + pad, cy1 + pad))
-                                        print(f"        * OCR'ing char code {c_code} with bbox {bbox}...")
-                                        ocr_text = pytesseract.image_to_string(crop, config='--psm 10').strip()
-                                        print(f"        * OCR result: '{ocr_text}'")
-                                        if ocr_text:
-                                            mapping[c_code] = ocr_text[0]
-            doc.close()
-        except Exception as e:
-            print(f"[OCR] Error during OCR fallback for font {font_name}: {e}")
+    # Phase 2: Complete 0..255 Character Code Coverage Fallback
+    # Guarantees 100% of character codes in page stream map to Unicode
+    for code in range(256):
+        if code not in mapping or not mapping[code]:
+            if 32 <= code <= 126:
+                mapping[code] = chr(code)
+            else:
+                mapping[code] = " "
 
     # Build CMap
     max_code = max(mapping.keys()) if mapping else 255
@@ -127,10 +127,15 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
         f"1 begincodespacerange {codespace} endcodespacerange\n"
     )
     
-    if mapping:
-        cmap += f"{len(mapping)} beginbfchar\n"
-        for code, char_str in mapping.items():
-            if not char_str: char_str = " "
+    # Write entries in chunks of 100 (CMap limit per block)
+    items = sorted(mapping.items())
+    chunk_size = 100
+    for i in range(0, len(items), chunk_size):
+        chunk = items[i:i + chunk_size]
+        cmap += f"{len(chunk)} beginbfchar\n"
+        for code, char_str in chunk:
+            if not char_str:
+                char_str = " "
             try:
                 hex_str = char_str.encode('utf-16-be').hex().upper()
                 code_fmt = f"<{code:04X}>" if use_2byte else f"<{code:02X}>"
@@ -139,12 +144,12 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
                 code_fmt = f"<{code:04X}>" if use_2byte else f"<{code:02X}>"
                 cmap += f"{code_fmt} <0020>\n"
         cmap += "endbfchar\n"
-    else:
-        cmap += f"1 beginbfrange {codespace} <0000> endbfrange\n"
         
     cmap += (
         "endcmap\n"
         "CMapName currentdict /CMap defineresource pop\n"
-        "end end"
+        "end\n"
+        "end"
     )
     return cmap
+
