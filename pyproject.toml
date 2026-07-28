@@ -186,11 +186,17 @@ files = [
 ]
 
 # numpy ships stubs that use PEP 695 `type` statements. mypy can only parse
-# those when targeting 3.12 or later, and this project still supports 3.10, so
-# the stubs are skipped rather than lowering the target for everything else.
+# those when targeting 3.12 or later, and this project supports 3.10, so the
+# stubs are skipped rather than raising the target everywhere to accommodate
+# one dependency whose own types this project does not rely on.
+#
+# follow_imports_for_stubs is the part that matters: follow_imports on its own
+# does not apply to .pyi files, so skipping without it leaves mypy parsing the
+# stub and failing on syntax it cannot read.
 [[tool.mypy.overrides]]
 module = ["numpy", "numpy.*"]
 follow_imports = "skip"
+follow_imports_for_stubs = true
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
