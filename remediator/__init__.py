@@ -7,7 +7,15 @@ PDF/UA-1 (ISO 14289-1) and WCAG 2.1, and audits the result.
 from __future__ import annotations
 
 from importlib import metadata as _metadata
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # Re-exported for static analysis only. The runtime resolution happens in
+    # __getattr__ below, which type checkers, linters and editors cannot follow;
+    # without these imports they report the names in __all__ as undefined and
+    # autocompletion does not offer them.
+    from remediator.compliance import run_compliance_check
+    from remediator.pipeline import remediate_single_pdf
 
 try:
     __version__ = _metadata.version("ada-pdf-remediator")

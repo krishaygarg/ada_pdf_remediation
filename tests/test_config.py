@@ -46,13 +46,15 @@ class TestImportPurity:
 
     def test_version_is_importable_without_the_pdf_stack(self) -> None:
         """``__version__`` must not drag in pikepdf; health checks depend on it."""
-        result = subprocess.run(
+        script = "\n".join(
             [
-                sys.executable,
-                "-c",
-                "import sys, remediator; print(remediator.__version__); "
+                "import sys, remediator",
+                "print(remediator.__version__)",
                 "print('pikepdf' in sys.modules)",
-            ],
+            ]
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
             check=True,
             cwd=Path(__file__).resolve().parent.parent,
             capture_output=True,
@@ -104,8 +106,13 @@ class TestConfigureWorkspaceTmp:
     def test_environment_is_restored_even_when_the_body_raises(self, tmp_path: Path) -> None:
         os.environ["ADA_REMEDIATOR_TMP"] = str(tmp_path / "boom")
         os.environ["TMPDIR"] = "/original"
-        with pytest.raises(RuntimeError, match="deliberate"), config.configure_workspace_tmp():
-            raise RuntimeError("deliberate")
+
+        def explode() -> None:
+            with config.configure_workspace_tmp():
+                raise RuntimeError("deliberate")
+
+        with pytest.raises(RuntimeError, match="deliberate"):
+            explode()
         assert os.environ["TMPDIR"] == "/original"
 
     def test_absent_variables_are_removed_again_rather_than_left_behind(

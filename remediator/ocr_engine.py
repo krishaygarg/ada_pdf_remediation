@@ -80,7 +80,6 @@ def generate_ocr_text_ops(
             if word_str and conf > 20:
                 left = float(ocr_data["left"][i]) * scale_x
                 top = float(ocr_data["top"][i]) * scale_y
-                w = float(ocr_data["width"][i]) * scale_x
                 h = float(ocr_data["height"][i]) * scale_y
 
                 # Convert top-left coordinates to PDF bottom-left coordinates
