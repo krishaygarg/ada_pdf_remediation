@@ -185,6 +185,14 @@ files = [
     "remediator/numbertree.py",
 ]
 
+# numpy ships stubs that use PEP 695 `type` statements. mypy can only parse
+# those when targeting 3.12 or later, and this project still supports 3.10, so
+# the stubs are skipped rather than lowering the target for everything else.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
 [[tool.mypy.overrides]]
 module = [
     "pikepdf.*",
