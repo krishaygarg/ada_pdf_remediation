@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Matterhorn Protocol 1.1
+    url: https://pdfa.org/download-area/publications/Matterhorn-Protocol-1-1.pdf
+    about: The 31 checkpoints and 136 failure conditions that define PDF/UA-1 testing.
+  - name: veraPDF
+    url: https://docs.verapdf.org/
+    about: The reference open source PDF/UA validator used to verify output.
+  - name: Report a security issue
+    url: https://github.com/krishaygarg/ada_pdf_remediation/security/advisories/new
+    about: Please report vulnerabilities privately rather than as a public issue.
