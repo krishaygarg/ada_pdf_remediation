@@ -100,8 +100,10 @@ def remediate_single_pdf(input_path: str, output_path: str):
             page_struct_elems = []
             first_text_in_page = True
             
-            # Prepend 'q' to isolate original page coordinates
+            # Prepend 'q' wrapped in /Artifact marked content to isolate coordinates
+            final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
             final_ops.append(([], pikepdf.Operator("q")))
+            final_ops.append(([], pikepdf.Operator("EMC")))
             
             # Filter page contents (strip paths & strip text inside complex bboxes)
             generator = filter_page_content(pikepage, complex_bboxes_pdf)
@@ -146,14 +148,18 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         page_struct_elems.append(p_elem)
                         mcid += 1
                     elif item_type == 'empty_text':
+                        final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
                         final_ops.extend(data)
+                        final_ops.append(([], pikepdf.Operator("EMC")))
                     elif item_type == 'artifact':
                         # Wrap path block in /Artifact << /Subtype /Layout >> BDC ... EMC
                         final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
                     else: # other
+                        final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
                         final_ops.append(data)
+                        final_ops.append(([], pikepdf.Operator("EMC")))
                         
             # Tag Link Annotations on page for WCAG 1.3.1 & WCAG 2.4.4
             if "/Annots" in pikepage:
@@ -165,6 +171,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
                             S=pikepdf.Name("/Link"),
                             P=document_elem,
                             Pg=pikepage.obj,
+                            Alt=pikepdf.String("Hyperlink"),
                             K=pikepdf.Dictionary(
                                 Type=pikepdf.Name("/OBJR"),
                                 Obj=annot,
@@ -173,6 +180,11 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         ))
                         document_elem.K.append(link_elem)
                         page_struct_elems.append(link_elem)
+
+            # Append 'Q' wrapped in /Artifact marked content
+            final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
+            final_ops.append(([], pikepdf.Operator("Q")))
+            final_ops.append(([], pikepdf.Operator("EMC")))
                         
             # Check if page is a scanned document (lacks live text operators)
             page_text = (plumbpage.extract_text() or "").strip()
