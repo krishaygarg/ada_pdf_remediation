@@ -45,6 +45,7 @@ dependencies = [
     "pillow>=9.5.0",
     "pdfminer.six>=20221105",
     "fonttools>=4.40.0",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
@@ -177,6 +178,7 @@ files = [
     "remediator/config.py",
     "remediator/cli",
     "remediator/audit",
+    "remediator/contrast",
     "remediator/alttext",
     "remediator/fonts",
     "remediator/geometry",
