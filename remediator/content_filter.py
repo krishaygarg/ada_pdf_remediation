@@ -1,5 +1,7 @@
 import pikepdf
-from .utils import multiply_matrices, transform_point, get_operator_coords
+
+from .utils import get_operator_coords, multiply_matrices, transform_point
+
 
 def filter_page_content(page_obj, complex_bboxes_pdf_space):
     """
@@ -12,43 +14,43 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
         instructions = pikepdf.parse_content_stream(page_obj)
     except Exception:
         return
-    
-    path_construction_ops = {'m', 'l', 'c', 'v', 'y', 'h', 're'}
-    path_painting_ops = {'S', 's', 'f', 'F', 'f*', 'B', 'B*', 'b', 'b*', 'n'}
-    clipping_ops = {'W', 'W*'}
-    
+
+    path_construction_ops = {"m", "l", "c", "v", "y", "h", "re"}
+    path_painting_ops = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*", "n"}
+    clipping_ops = {"W", "W*"}
+
     ctm = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     ctm_stack = []
-    
+
     t_m = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     t_lm = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
     t_leading = 0.0
-    
+
     in_text_block = False
     text_block_ops = []
     has_visible_text = False
-    
+
     path_buffer = []
-    
+
     for operands, operator in instructions:
         op_name = str(operator)
-        
+
         # Strip pre-existing marked content operators to avoid nesting structural blocks
-        if op_name in ('BDC', 'BMC', 'EMC'):
+        if op_name in ("BDC", "BMC", "EMC"):
             continue
-            
+
         # Track CTM
-        if op_name == 'q':
+        if op_name == "q":
             ctm_stack.append(list(ctm))
-        elif op_name == 'Q':
+        elif op_name == "Q":
             if ctm_stack:
                 ctm = ctm_stack.pop()
-        elif op_name == 'cm':
+        elif op_name == "cm":
             if len(operands) >= 6:
                 ctm = multiply_matrices([float(x) for x in operands], ctm)
-            
+
         # Track text state
-        if op_name == 'BT':
+        if op_name == "BT":
             in_text_block = True
             text_block_ops = []
             has_visible_text = False
@@ -57,39 +59,39 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
             t_leading = 0.0
             text_block_ops.append((operands, operator))
             continue
-            
+
         if in_text_block:
             text_block_ops.append((operands, operator))
-            
+
             # Update matrices
-            if op_name == 'Tm':
+            if op_name == "Tm":
                 if len(operands) >= 6:
                     t_m = [float(x) for x in operands]
                     t_lm = list(t_m)
-            elif op_name in ('Td', 'TD'):
+            elif op_name in ("Td", "TD"):
                 if len(operands) >= 2:
                     tx_o, ty_o = float(operands[0]), float(operands[1])
-                    if op_name == 'TD':
+                    if op_name == "TD":
                         t_leading = -ty_o
                     t_lm = multiply_matrices([1.0, 0.0, 0.0, 1.0, tx_o, ty_o], t_lm)
                     t_m = list(t_lm)
-            elif op_name == 'T*':
+            elif op_name == "T*":
                 t_lm = multiply_matrices([1.0, 0.0, 0.0, 1.0, 0.0, -t_leading], t_lm)
                 t_m = list(t_lm)
-            elif op_name == 'TL':
+            elif op_name == "TL":
                 if len(operands) >= 1:
                     t_leading = float(operands[0])
             elif op_name in ("'", '"'):
                 tx_o, ty_o = 0.0, -t_leading
                 t_lm = multiply_matrices([1.0, 0.0, 0.0, 1.0, tx_o, ty_o], t_lm)
                 t_m = list(t_lm)
-                
+
             # Perform text content visibility check for text showing operators
-            if op_name in ('Tj', 'TJ', "'", '"'):
-                if op_name == 'Tj':
+            if op_name in ("Tj", "TJ", "'", '"'):
+                if op_name == "Tj":
                     if str(operands[0]).strip():
                         has_visible_text = True
-                elif op_name == 'TJ':
+                elif op_name == "TJ":
                     for item in operands[0]:
                         if isinstance(item, pikepdf.String):
                             if str(item).strip():
@@ -98,23 +100,23 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                 elif op_name in ("'", '"'):
                     if str(operands[-1]).strip():
                         has_visible_text = True
-                            
-            if op_name == 'ET':
+
+            if op_name == "ET":
                 in_text_block = False
                 if has_visible_text:
-                    yield 'text', text_block_ops
+                    yield "text", text_block_ops
                 else:
-                    yield 'empty_text', text_block_ops
+                    yield "empty_text", text_block_ops
             continue
-            
+
         # Handle path operators
         if op_name in path_construction_ops or op_name in clipping_ops:
             path_buffer.append(((operands, operator), list(ctm)))
             continue
-            
+
         if op_name in path_painting_ops:
             path_buffer.append(((operands, operator), list(ctm)))
-            
+
             # Process the full path sequence in the buffer
             coords_pdf = []
             for (item_ops, item_op), item_ctm in path_buffer:
@@ -123,7 +125,7 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                 for cx, cy in coords_c:
                     px, py = transform_point(cx, cy, item_ctm)
                     coords_pdf.append((px, py))
-                    
+
             inside_complex = False
             if coords_pdf:
                 for px, py in coords_pdf:
@@ -134,13 +136,13 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                             break
                     if inside_complex:
                         break
-                        
+
             if not inside_complex:
-                yield 'artifact', [op_item for op_item, _ in path_buffer]
-                
+                yield "artifact", [op_item for op_item, _ in path_buffer]
+
             path_buffer = []
             continue
-            
+
         # Flush path buffer if other operator is met
         if path_buffer:
             inside_complex = False
@@ -161,7 +163,7 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                     if inside_complex:
                         break
             if not inside_complex:
-                yield 'artifact', [op_item for op_item, _ in path_buffer]
+                yield "artifact", [op_item for op_item, _ in path_buffer]
             path_buffer = []
-            
-        yield 'other', (operands, operator)
+
+        yield "other", (operands, operator)

@@ -1,13 +1,15 @@
 import re
+
 import pikepdf
 from pdfminer.glyphlist import glyphname2unicode
+
 
 def get_standard_encoding_map(enc_name):
     codec_map = {
         "WinAnsiEncoding": "cp1252",
         "MacRomanEncoding": "mac_roman",
         "StandardEncoding": "latin1",
-        "PDFDocEncoding": "latin1"
+        "PDFDocEncoding": "latin1",
     }
     codec = codec_map.get(enc_name)
     if not codec:
@@ -22,27 +24,30 @@ def get_standard_encoding_map(enc_name):
             pass
     return mapping
 
+
 def parse_existing_tounicode(cmap_bytes: bytes) -> dict:
     """
     Parses an existing /ToUnicode CMap stream and extracts all (code -> unicode_str) mappings.
     """
     mapping = {}
     try:
-        text = cmap_bytes.decode('utf-8', errors='ignore')
+        text = cmap_bytes.decode("utf-8", errors="ignore")
         # Parse beginbfchar blocks: <01> <0041> or <0001> <0041>
-        bfchar_matches = re.findall(r'<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>', text)
+        bfchar_matches = re.findall(r"<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>", text)
         for src_hex, dst_hex in bfchar_matches:
             try:
                 code = int(src_hex, 16)
                 dst_bytes = bytes.fromhex(dst_hex)
-                uni_str = dst_bytes.decode('utf-16-be', errors='ignore')
+                uni_str = dst_bytes.decode("utf-16-be", errors="ignore")
                 if uni_str:
                     mapping[code] = uni_str
             except Exception:
                 pass
 
         # Parse beginbfrange blocks: <01> <05> <0041> or <01> <05> [<0041> <0042> ...]
-        bfrange_matches = re.findall(r'<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>', text)
+        bfrange_matches = re.findall(
+            r"<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>\s+<([0-9A-Fa-f]+)>", text
+        )
         for start_hex, end_hex, dst_hex in bfrange_matches:
             try:
                 start_code = int(start_hex, 16)
@@ -51,7 +56,7 @@ def parse_existing_tounicode(cmap_bytes: bytes) -> dict:
                 for offset in range(end_code - start_code + 1):
                     code = start_code + offset
                     curr_dst_hex = f"{base_dst + offset:04X}"
-                    uni_str = bytes.fromhex(curr_dst_hex).decode('utf-16-be', errors='ignore')
+                    uni_str = bytes.fromhex(curr_dst_hex).decode("utf-16-be", errors="ignore")
                     if uni_str:
                         mapping[code] = uni_str
             except Exception:
@@ -60,9 +65,10 @@ def parse_existing_tounicode(cmap_bytes: bytes) -> dict:
         pass
     return mapping
 
+
 def generate_tounicode_cmap(font_obj, font_name, input_path):
     mapping = {}
-    
+
     # Phase 0: Parse existing /ToUnicode stream if present
     if "/ToUnicode" in font_obj:
         try:
@@ -72,7 +78,9 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
                 existing_map = parse_existing_tounicode(raw_bytes)
                 if existing_map:
                     mapping.update(existing_map)
-                    print(f"      * Extracted {len(existing_map)} existing /ToUnicode CMap entries for {font_name}.")
+                    print(
+                        f"      * Extracted {len(existing_map)} existing /ToUnicode CMap entries for {font_name}."
+                    )
         except Exception:
             pass
 
@@ -128,30 +136,24 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
         "/CMapType 2 def\n"
         f"1 begincodespacerange {codespace} endcodespacerange\n"
     )
-    
+
     # Write entries in chunks of 100 (CMap limit per block)
     items = sorted(mapping.items())
     chunk_size = 100
     for i in range(0, len(items), chunk_size):
-        chunk = items[i:i + chunk_size]
+        chunk = items[i : i + chunk_size]
         cmap += f"{len(chunk)} beginbfchar\n"
         for code, char_str in chunk:
             if not char_str:
                 char_str = " "
             try:
-                hex_str = char_str.encode('utf-16-be').hex().upper()
+                hex_str = char_str.encode("utf-16-be").hex().upper()
                 code_fmt = f"<{code:04X}>" if use_2byte else f"<{code:02X}>"
                 cmap += f"{code_fmt} <{hex_str}>\n"
             except Exception:
                 code_fmt = f"<{code:04X}>" if use_2byte else f"<{code:02X}>"
                 cmap += f"{code_fmt} <0020>\n"
         cmap += "endbfchar\n"
-        
-    cmap += (
-        "endcmap\n"
-        "CMapName currentdict /CMap defineresource pop\n"
-        "end\n"
-        "end"
-    )
-    return cmap
 
+    cmap += "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend"
+    return cmap

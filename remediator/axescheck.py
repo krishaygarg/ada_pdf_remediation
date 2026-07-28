@@ -4,12 +4,12 @@ axesCheck (check.axes4.com) PDF Accessibility Checker API Client & MCP Module.
 Solves ALTCHA proof-of-work challenges in <1ms and posts PDFs to check.axes4.com/api/upload.
 """
 
-import os
-import sys
-import json
 import base64
 import hashlib
+import json
+import os
 import subprocess
+import sys
 
 
 def solve_altcha_challenge(challenge_data: dict) -> str:
@@ -30,10 +30,10 @@ def solve_altcha_challenge(challenge_data: dict) -> str:
                 "challenge": challenge,
                 "number": num,
                 "salt": salt,
-                "signature": signature
+                "signature": signature,
             }
             return base64.b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
-            
+
     return ""
 
 
@@ -60,14 +60,22 @@ def audit_pdf_axescheck(pdf_path: str, language: str = "en") -> dict:
     # 3. Upload PDF file via curl with token, file, language fields
     try:
         cmd_upload = [
-            "curl", "-s", "--http1.1",
-            "-X", "POST",
-            "-H", "Origin: https://check.axes4.com",
-            "-H", f"Referer: https://check.axes4.com/{language}",
-            "-F", f"file=@{pdf_path}",
-            "-F", f"token={altcha_payload}",
-            "-F", f"language={language}",
-            "https://check.axes4.com/api/upload"
+            "curl",
+            "-s",
+            "--http1.1",
+            "-X",
+            "POST",
+            "-H",
+            "Origin: https://check.axes4.com",
+            "-H",
+            f"Referer: https://check.axes4.com/{language}",
+            "-F",
+            f"file=@{pdf_path}",
+            "-F",
+            f"token={altcha_payload}",
+            "-F",
+            f"language={language}",
+            "https://check.axes4.com/api/upload",
         ]
         res_up = subprocess.run(cmd_upload, capture_output=True, text=True, check=True)
         raw_output = res_up.stdout
@@ -80,13 +88,8 @@ def audit_pdf_axescheck(pdf_path: str, language: str = "en") -> dict:
         return {"success": False, "error": f"Upload/Audit failed on axesCheck: {e}"}
 
 
-
-
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "samples/physics/physics.pdf"
     print(f"Running axesCheck (check.axes4.com) audit on: {target}...")
     res = audit_pdf_axescheck(target)
     print(json.dumps(res, indent=2))
-
-
-
