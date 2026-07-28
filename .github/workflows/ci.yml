@@ -177,6 +177,25 @@ jobs:
           VERAPDF_CLI: /home/runner/verapdf/verapdf
         run: pytest tests/test_conformance.py -v
 
+      - name: Cross-check the audit engine against the reference validator
+        env:
+          VERAPDF_CLI: /home/runner/verapdf/verapdf
+        run: pytest tests/test_audit_differential.py -v
+
+      - name: Audit the sample and export findings as SARIF
+        continue-on-error: true
+        run: |
+          mkdir -p tmp
+          remediate-pdf samples/physics/physics.pdf tmp/audited.pdf
+          check-compliance tmp/audited.pdf --format sarif --output tmp/audit.sarif
+
+      - name: Publish audit findings
+        if: always() && hashFiles('tmp/audit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: tmp/audit.sarif
+          category: pdf-ua-audit
+
   build:
     name: Build distribution
     runs-on: ubuntu-latest
