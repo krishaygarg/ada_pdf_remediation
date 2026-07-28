@@ -18,7 +18,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Dependencies are installed before the source is copied so that editing code
 # does not invalidate the dependency layer.
 COPY requirements.txt ./
-RUN pip install --require-hashes=false -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pyproject.toml README.md LICENSE ./
 COPY remediator ./remediator
