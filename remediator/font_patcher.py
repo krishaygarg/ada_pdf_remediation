@@ -73,11 +73,13 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
         try:
             doc = fitz.open(input_path)
             base_font_clean = str(font_name).replace("/", "").split("+")[-1]
-            pix = None
-            img = None
+            visited_codes = set()
+            
             for page in doc:
                 text_dict = page.get_text("rawdict")
                 if "blocks" not in text_dict: continue
+                pix = None
+                img = None
                 for block in text_dict["blocks"]:
                     if "lines" not in block: continue
                     for line in block["lines"]:
@@ -87,6 +89,10 @@ def generate_tounicode_cmap(font_obj, font_name, input_path):
                                 for char in span["chars"]:
                                     c_str = char["c"]
                                     c_code = ord(c_str[0]) if len(c_str) == 1 else 0
+                                    if c_code in visited_codes:
+                                        continue
+                                    visited_codes.add(c_code)
+                                    
                                     if "\ufffd" in c_str or c_code == 0 or c_code not in mapping or mapping[c_code] == "":
                                         bbox = char["bbox"]
                                         if pix is None:
