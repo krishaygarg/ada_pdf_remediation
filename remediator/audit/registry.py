@@ -21,6 +21,11 @@ RuleFunction = Callable[[DocumentContext], Iterable[Finding]]
 
 _CONDITION_PATTERN = re.compile(r"^\d{2}-\d{3}$")
 
+#: Checkpoints whose rules render pages, which costs orders of magnitude more
+#: than reading the object graph. They run only when asked for by name, so the
+#: default audit stays fast enough to sit in a commit hook.
+EXPENSIVE_CHECKPOINTS = frozenset({"04"})
+
 #: condition identifier -> (metadata, function)
 _REGISTRY: dict[str, tuple[RuleMetadata, RuleFunction]] = {}
 
@@ -134,12 +139,17 @@ def _select(
     def matches(condition: str, selectors: set[str]) -> bool:
         return condition in selectors or condition.split("-", 1)[0] in selectors
 
-    return {
-        condition: entry
-        for condition, entry in rules.items()
-        if (include_set is None or matches(condition, include_set))
-        and not matches(condition, exclude_set)
-    }
+    def wanted(condition: str) -> bool:
+        checkpoint = condition.split("-", 1)[0]
+        if matches(condition, exclude_set):
+            return False
+        if include_set is not None:
+            return matches(condition, include_set)
+        # An expensive checkpoint is opt-in, so it is absent from a default run
+        # unless the caller named it.
+        return checkpoint not in EXPENSIVE_CHECKPOINTS
+
+    return {condition: entry for condition, entry in rules.items() if wanted(condition)}
 
 
 def iter_human_checks() -> Iterator[RuleMetadata]:
