@@ -9,7 +9,7 @@
 pikepdf>=8.0.0,<11
 pdfplumber>=0.10.0,<0.12
 PyMuPDF>=1.22.0,<2
-pillow>=9.5.0,<12
+pillow>=9.5.0,<13
 pdfminer.six>=20221105
 fonttools>=4.40.0,<5
 numpy>=1.24,<3
