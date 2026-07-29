@@ -38,6 +38,7 @@ from .security import (
     SECURITY_HEADERS,
     RateLimiter,
     client_key,
+    cors_headers,
     validate_upload,
 )
 
@@ -102,7 +103,14 @@ def create_app(
     def _apply_headers(response: Response) -> Response:
         for header, value in SECURITY_HEADERS.items():
             response.headers.setdefault(header, value)
+        for header, value in cors_headers(request.headers.get("Origin")).items():
+            response.headers[header] = value
         return response
+
+    # Preflight needs no route of its own. Flask answers OPTIONS for every
+    # registered rule automatically, and the hook above attaches the
+    # cross-origin headers to that response like any other. Adding a catch-all
+    # would only introduce an endpoint the API description does not know about.
 
     @app.errorhandler(413)
     def _too_large(_error: Any) -> tuple[Response, int]:

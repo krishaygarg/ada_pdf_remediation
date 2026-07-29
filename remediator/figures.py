@@ -36,24 +36,33 @@ class DetectedFigure:
     xobject_name: str | None = None
 
 
+#: An image smaller than this fraction of the page is a bullet, a rule, a
+#: spacer or a tracking pixel. Tagging each as a figure fills the reading order
+#: with elements a reader has to skip, which is its own accessibility problem.
+IMAGE_AREA_THRESHOLD = 0.0009
+
+
+def is_meaningful_image(
+    box: Box, *, page_width: float, page_height: float, min_area_ratio: float = IMAGE_AREA_THRESHOLD
+) -> bool:
+    """Whether an image placement is large enough to be worth tagging."""
+    return box.area >= page_width * page_height * min_area_ratio
+
+
 def detect_image_figures(
     image_placements: Sequence[tuple[str, Box]],
     *,
     page_width: float,
     page_height: float,
-    min_area_ratio: float = 0.0009,
+    min_area_ratio: float = IMAGE_AREA_THRESHOLD,
 ) -> list[DetectedFigure]:
-    """Select image placements large enough to carry meaning.
-
-    Very small images are bullets, rules, spacers and tracking pixels. Tagging
-    each as a figure fills the reading order with elements a reader must skip,
-    which is its own accessibility problem.
-    """
-    threshold = page_width * page_height * min_area_ratio
+    """Select image placements large enough to carry meaning."""
     figures = [
         DetectedFigure(bbox=box, kind="image", xobject_name=name)
         for name, box in image_placements
-        if box.area >= threshold
+        if is_meaningful_image(
+            box, page_width=page_width, page_height=page_height, min_area_ratio=min_area_ratio
+        )
     ]
     return sorted(figures, key=lambda figure: (figure.bbox.top, figure.bbox.x0))
 
@@ -152,9 +161,11 @@ def describe_figures(
 
 
 __all__ = [
+    "IMAGE_AREA_THRESHOLD",
     "DetectedFigure",
     "build_figure_element",
     "describe_figures",
     "detect_image_figures",
     "detect_vector_figures",
+    "is_meaningful_image",
 ]

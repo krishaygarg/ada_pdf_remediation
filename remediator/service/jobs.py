@@ -212,9 +212,6 @@ class JobStore:
             self._events.setdefault(job_id, []).append(event)
             condition.notify_all()
 
-    def events_since(self, job_id: str, index: int) -> list[ProgressEvent]:
-        return self._events.get(job_id, [])[index:]
-
     def follow(self, job_id: str, timeout: float = 300.0) -> Iterator[ProgressEvent]:
         """Yield events as they arrive, ending when the job reaches a terminal state.
 

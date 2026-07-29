@@ -6,15 +6,16 @@ import pikepdf
 
 from .alttext import get_provider
 from .content_filter import filter_page_content
-from .figures import DetectedFigure, build_figure_element, describe_figures, detect_vector_figures
+from .figures import (
+    DetectedFigure,
+    build_figure_element,
+    describe_figures,
+    detect_vector_figures,
+    is_meaningful_image,
+)
 from .font_patcher import recover_font_mapping
 from .numbertree import build_number_tree
 from .progress import ConsoleReporter, ProgressReporter, Stage, emit
-
-#: An image smaller than this fraction of the page is a bullet, a rule or a
-#: spacer. Tagging each as a figure fills the reading order with elements a
-#: reader has to skip, which is its own accessibility problem.
-IMAGE_AREA_THRESHOLD = 0.0009
 
 #: Namespace URI of the PDF/UA identification schema, ISO 14289-1 clause 5.
 #: The conventional prefix is "pdfuaid" but the URI path segment is "pdfua".
@@ -350,7 +351,9 @@ def remediate_single_pdf(
                             and geometry["images"][-1][0] == str(data[0][0])
                         ):
                             candidate = geometry["images"][-1][1]
-                            if candidate.area >= page_width * page_height * IMAGE_AREA_THRESHOLD:
+                            if is_meaningful_image(
+                                candidate, page_width=page_width, page_height=page_height
+                            ):
                                 placement = candidate
 
                         figure = None
