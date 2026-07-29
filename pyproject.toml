@@ -139,7 +139,6 @@ ignore = [
 # module is reworked rather than hidden behind a blanket exclusion.
 "remediator/pipeline.py" = ["ARG001", "PTH", "RET", "SIM", "B", "UP", "RUF", "W293"]
 "remediator/content_filter.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
-"remediator/compliance.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "E712"]
 "remediator/font_patcher.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001"]
 "remediator/ocr_engine.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001", "F841"]
 "remediator/axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
@@ -168,7 +167,7 @@ check_untyped_defs = true
 # silent so that importing a not-yet-typed module does not report errors from
 # outside the checked set; the file list is what grows over time.
 follow_imports = "silent"
-files = ["remediator/config.py", "remediator/cli"]
+files = ["remediator/config.py", "remediator/cli", "remediator/audit", "remediator/numbertree.py"]
 
 [[tool.mypy.overrides]]
 module = [
