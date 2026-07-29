@@ -60,7 +60,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        # 3.14 is here because the container runs it. Without this leg the
+        # deployed interpreter is the one version the suite never exercises,
+        # and the image's own check only runs --help, which proves imports
+        # resolve and nothing more.
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
           # One macOS leg guards against path and Poppler differences without
           # quadrupling the runtime of the matrix.

@@ -125,7 +125,7 @@ To try an approach without touching the repository, register a strategy through 
 
 Branch from `main`, keep commits focused, and write messages that explain the reasoning rather than restating the diff. The pull request template asks which standard is affected and how you verified it.
 
-CI runs formatting, lint, type checking, tests on Python 3.10 through 3.13, veraPDF conformance, a differential check between the two audit engines, container build and scan, CodeQL, and an accessibility check of this project's own web interface. All of it has to pass.
+CI runs formatting, lint, type checking, tests on Python 3.10 through 3.14, veraPDF conformance, a differential check between the two audit engines, container build and scan, CodeQL, and an accessibility check of this project's own web interface. All of it has to pass.
 
 ## Reporting something
 

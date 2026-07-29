@@ -5,7 +5,7 @@
 [![CI](https://github.com/krishaygarg/ada_pdf_remediation/actions/workflows/ci.yml/badge.svg)](https://github.com/krishaygarg/ada_pdf_remediation/actions/workflows/ci.yml)
 [![PDF/UA-1](https://img.shields.io/badge/PDF%2FUA--1-verified%20by%20veraPDF-0f766e)](https://verapdf.org/)
 [![Matterhorn](https://img.shields.io/badge/Matterhorn-34%20conditions-0f766e)](https://pdfa.org/resource/matterhorn-protocol/)
-[![Python](https://img.shields.io/badge/python-3.10%20to%203.13-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.10%20to%203.14-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A screen reader does not read a page the way you see it. It follows a tag tree stored inside the file, and most PDFs do not have one. The text is there, but it arrives in whatever order the producer happened to write it, with nothing marking what is a heading, what is a caption, and what is decoration. Academic papers are the worst offenders: two columns interleave, equations interrupt sentences, and figures carry no description at all.
