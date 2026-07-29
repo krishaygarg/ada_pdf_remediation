@@ -4,12 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#165c67" />
 
     <title>ADA PDF Remediator — tag PDFs for screen readers and audit the result</title>
     <meta
       name="description"
       content="Upload a PDF and get back a tagged document plus an honest conformance report: every finding is tied to a Matterhorn Protocol failure condition and an ISO 14289-1 clause."
     />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="https://ada-pdf-remediator.pages.dev/" />
 
     <meta property="og:type" content="website" />
@@ -27,14 +29,36 @@
       property="og:image:alt"
       content="ADA PDF Remediator: tag PDFs for screen readers, then audit the result."
     />
+    <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ADA PDF Remediator" />
+    <meta
+      name="twitter:description"
+      content="Tag PDFs for screen readers and audit the result against PDF/UA-1. Open source, MIT licensed."
+    />
+    <meta
+      name="twitter:image"
+      content="https://ada-pdf-remediator.pages.dev/social-card.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="ADA PDF Remediator: tag PDFs for screen readers, then audit the result."
+    />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <link rel="stylesheet" href="/styles.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "ADA PDF Remediator",
+            "url": "https://ada-pdf-remediator.pages.dev/",
+            "description": "Tag PDFs for screen readers and audit the result against PDF/UA-1."
+          },
           {
             "@type": "SoftwareApplication",
             "name": "ADA PDF Remediator",
@@ -278,11 +302,20 @@
         <p>
           MIT licensed.
           <a href="https://github.com/krishaygarg/ada_pdf_remediation" rel="noopener">Source</a> ·
-          <a href="/api/openapi.json">API</a>
+          <a href="https://ada-pdf-remediator.onrender.com/api/openapi.json" rel="noopener">API</a>
         </p>
       </div>
     </footer>
 
+    <noscript>
+      <section class="shell prose" aria-label="JavaScript required">
+        <h2>JavaScript is required for uploads</h2>
+        <p>
+          The interface submits the PDF, follows live progress, and renders the returned audit in
+          the browser. You can still read the source and API documentation from the links above.
+        </p>
+      </section>
+    </noscript>
     <script src="/app.js" type="module"></script>
   </body>
 </html>

@@ -235,6 +235,7 @@ class TestContentSecurityPolicy:
         assert "Content-Security-Policy" in headers
         assert "object-src 'none'" in headers
         assert "frame-ancestors 'none'" in headers
+        assert "Strict-Transport-Security" in headers
 
     def test_the_policy_permits_the_api_origin_the_page_calls(self, script: str) -> None:
         headers = (WEB / "_headers").read_text(encoding="utf-8")
@@ -259,6 +260,12 @@ class TestDiscoverability:
     def test_sharing_metadata_is_complete(self, html: str, property_name: str) -> None:
         assert f'property="{property_name}"' in html
 
+    @pytest.mark.parametrize(
+        "name", ["twitter:title", "twitter:description", "twitter:image", "twitter:image:alt"]
+    )
+    def test_twitter_metadata_is_complete(self, html: str, name: str) -> None:
+        assert f'name="{name}"' in html
+
     def test_the_social_image_exists_at_the_expected_size(self) -> None:
         from PIL import Image
 
@@ -270,12 +277,16 @@ class TestDiscoverability:
     def test_the_social_image_has_alternative_text(self, html: str) -> None:
         assert 'property="og:image:alt"' in html
 
+    def test_the_page_declares_a_webmanifest_and_touch_icon(self, html: str) -> None:
+        assert 'rel="manifest"' in html
+        assert 'rel="apple-touch-icon"' in html
+
     def test_structured_data_is_valid_json(self, html: str) -> None:
         block = re.search(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
         assert block
         data = json.loads(block.group(1))
         types = {entry["@type"] for entry in data["@graph"]}
-        assert {"SoftwareApplication", "FAQPage"} <= types
+        assert {"WebSite", "SoftwareApplication", "FAQPage"} <= types
 
     def test_the_structured_data_does_not_overstate_what_the_tool_does(self, html: str) -> None:
         """The answers a search engine may surface have to be the honest ones."""
@@ -291,6 +302,10 @@ class TestDiscoverability:
         assert location
         ET.fromstring(sitemap)
         assert "ada-pdf-remediator" in location.group(1)
+
+    def test_the_sitemap_declares_a_last_modified_date(self) -> None:
+        sitemap = (WEB / "sitemap.xml").read_text(encoding="utf-8")
+        assert "<lastmod>" in sitemap
 
     def test_per_upload_endpoints_are_not_offered_for_indexing(self) -> None:
         assert "Disallow: /api/" in (WEB / "robots.txt").read_text(encoding="utf-8")
@@ -436,3 +451,6 @@ class TestBehaviourIsDataDriven:
         for path in called:
             normalised = re.sub(r"\$\{[^}]+\}", "<job_id>", path)
             assert normalised in served, f"the interface calls {normalised}, which is not routed"
+
+    def test_the_api_documentation_link_targets_the_real_api_origin(self, html: str) -> None:
+        assert 'href="https://ada-pdf-remediator.onrender.com/api/openapi.json"' in html
