@@ -45,8 +45,7 @@ def render() -> str:
         f"**{summary['implemented_checkpoints']} of {MATTERHORN_CHECKPOINTS}** checkpoints.",
         "",
         "Everything not listed below is unimplemented. See "
-        "[CONTRIBUTING](https://github.com/krishaygarg/ada_pdf_remediation/blob/main/CONTRIBUTING.md)"
-        " for the backlog.",
+        "[CONTRIBUTING](../../CONTRIBUTING.md) for the backlog.",
         "",
     ]
 

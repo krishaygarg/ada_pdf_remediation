@@ -9,7 +9,7 @@ The Matterhorn Protocol 1.1 defines **31 checkpoints** and **136 failure conditi
 
 This project implements **34 conditions** across **17 of 31** checkpoints.
 
-Everything not listed below is unimplemented. See [CONTRIBUTING](https://github.com/krishaygarg/ada_pdf_remediation/blob/main/CONTRIBUTING.md) for the backlog.
+Everything not listed below is unimplemented. See [CONTRIBUTING](../../CONTRIBUTING.md) for the backlog.
 
 ## Checkpoint 01 Real content
 

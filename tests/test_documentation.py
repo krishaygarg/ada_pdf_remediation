@@ -108,29 +108,20 @@ class TestGeneratedCatalogue:
 
 
 class TestSiteIntegrity:
-    def test_every_navigation_entry_exists(self) -> None:
-        import yaml
+    def test_the_docs_folder_has_an_index_github_will_render(self) -> None:
+        """Opening docs/ on GitHub shows README.md, so that is the entry point."""
+        index = ROOT / "docs" / "README.md"
+        assert index.is_file()
+        text = index.read_text(encoding="utf-8")
+        for page in ("architecture.md", "honesty.md", "reference/rules.md"):
+            assert page in text, f"the index does not link to {page}"
 
-        config = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
-        # The Mermaid fence uses a Python-name tag mkdocs understands and a
-        # plain YAML loader does not, so it is stripped before parsing.
-        config = re.sub(r"!!python/name:\S+", "null", config)
-        navigation = yaml.safe_load(config)["nav"]
-
-        def walk(entries: object) -> list[str]:
-            found: list[str] = []
-            if isinstance(entries, list):
-                for entry in entries:
-                    found.extend(walk(entry))
-            elif isinstance(entries, dict):
-                for value in entries.values():
-                    found.extend(walk(value))
-            elif isinstance(entries, str):
-                found.append(entries)
-            return found
-
-        for page in walk(navigation):
-            assert (ROOT / "docs" / page).is_file(), f"nav points at a missing page: {page}"
+    def test_diagrams_use_a_fence_github_renders(self) -> None:
+        """GitHub renders mermaid fences natively, which is why there is no site."""
+        for source in (ROOT / "docs").rglob("*.md"):
+            text = source.read_text(encoding="utf-8")
+            if "mermaid" in text:
+                assert "```mermaid" in text, f"{source.name} has a diagram GitHub will not render"
 
     def test_internal_links_resolve(self) -> None:
         for source in (ROOT / "docs").rglob("*.md"):

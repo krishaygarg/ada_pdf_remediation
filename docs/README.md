@@ -12,13 +12,16 @@ remediate-pdf lecture-notes.pdf accessible.pdf
 check-compliance accessible.pdf
 ```
 
-## Start here
+## Contents
 
-- [Architecture](architecture.md), how a document moves through the pipeline
-- [Conformance rules](reference/rules.md), every check with its ISO clause, generated from the code
-- [Command line](reference/cli.md)
-- [HTTP API](reference/api.md)
-- [Honesty](honesty.md), the principle the design is built around
+| | |
+|---|---|
+| [Architecture](architecture.md) | How a document moves through the pipeline, and the two orderings people confuse |
+| [Honesty](honesty.md) | The principle the design follows, and the incident it came from |
+| [Conformance rules](reference/rules.md) | Every check with its ISO clause and WCAG mapping. Generated from the code. |
+| [Command line](reference/cli.md) | `remediate-pdf`, `check-compliance`, `ada-ro-bench` |
+| [HTTP API](reference/api.md) | Endpoints, job lifecycle, operational notes |
+| [Research](planning/) | The two active tracks and their specifications |
 
 ## The claim this project will not make
 
