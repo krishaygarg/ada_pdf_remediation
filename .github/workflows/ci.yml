@@ -245,8 +245,7 @@ jobs:
           for page in idle running report; do
             echo "--- $page"
             npx --yes pa11y@9 \
-              --standard WCAG2AA \
-              --runner axe --runner htmlcs \
+              --config .pa11y.json \
               --reporter cli \
               "http://127.0.0.1:8000/$page.html"
           done
