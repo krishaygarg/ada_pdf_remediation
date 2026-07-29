@@ -56,6 +56,11 @@ test = [
     "pytest-cov>=5.0",
     "hypothesis>=6.100",
     "reportlab>=4.0",
+    "coloraide>=4.0",
+    # tomllib is standard from 3.11. Without the backport the packaging tests
+    # would silently skip on 3.10, which is the version most likely to have a
+    # packaging problem in the first place.
+    "tomli>=2.0; python_version < '3.11'",
 ]
 dev = [
     "ada-pdf-remediator[ocr,test,web]",
