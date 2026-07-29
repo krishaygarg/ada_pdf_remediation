@@ -66,3 +66,61 @@ Below are the three general families of approaches to investigate. You are encou
 *   **Things to search for:** Multi-expert visual systems, lightweight image categorization, and routed inference pipelines.
 *   **Goal:** Evaluate the cost-to-accuracy trade-off of running a routing classifier + specialized micro-model vs. running a single multi-task VLM. Determine how fallback behaviors operate when classification is uncertain.
 
+---
+
+## 3. Prior Art: What Another Team Already Learned
+
+[ASUCICREPO/PDF_Accessibility](https://github.com/ASUCICREPO/PDF_Accessibility) is an ASU and AWS remediation pipeline that generates alt text with a hosted VLM (Amazon Nova Pro, having moved off Claude 3.5 Sonnet in their V2 release). It is MIT licensed, so the prompt is readable. Two findings there are worth adopting rather than rediscovering, and one is worth treating as a warning.
+
+### 3.1 Requirement: spoken-math needs explicit end delimiters
+
+Their prompt requires every symbol, number and operator to be spelled out, and marks where each subscript and superscript **ends**:
+
+| Rendered | Required alt text |
+|---|---|
+| `2(4y+1)=3y` | "2 open parenthesis 4 y plus 1 close parenthesis equals 3 y" |
+| `Fᵢ = mᵢa²` | "F with subscript i end subscript equals m with subscript i end subscript a to the power of 2" |
+| `Fₐ/ₓ^(n+1)` | "F with subscript a divided by x end subscript with superscript n plus 1 end superscript" |
+
+The `end subscript` and `end superscript` markers are the part that matters and the part that is easy to leave out. Without them a screen reader gives no cue where the script closes, so `a^(n+1)` and `a^n + 1` are read identically. A description that is correct except for a missing delimiter is not partially useful; for an equation it is wrong.
+
+**Requirement.** Any provider that describes formulas must emit explicit open and close markers for every level of sub- and superscript. The evaluation set must include at least one nested case, because that is where the convention earns its cost.
+
+### 3.2 Requirement: the crop alone is not enough input
+
+The spec above scopes input to "a pre-isolated image crop". Their V2 release notes record adding **spatial context** specifically because crop-only generation was not good enough. They pass the entire page text with the target image marked and every other image on the page marked differently:
+
+```
+... the whole page content, wherever you see "<OTHER IMAGE>" these are other
+images on the page. The main image is the one with the tag "<IMAGE INTERESTED>"
+```
+
+The model is then instructed to locate the target, decide which surrounding text belongs to it, and explicitly assume that text near a *different* image is not relevant.
+
+This is the difference between a caption match and a guess. On a page with two figures and a short paragraph between them, a provider that cannot tell which caption is which will confidently attach the wrong one, and that failure is invisible to any checker.
+
+**Requirement.** The provider interface must carry page text with the target figure's position marked within it, not just the nearby text. `FigureContext` should be extended before anyone writes a provider against it, so that a crop-only provider is a deliberate choice rather than the only thing the interface permits.
+
+### 3.3 Warning: they iterated hard on this and it is still wrong
+
+Their prompt carries a feedback block written to the model, preserved here verbatim because of what it admits:
+
+> **`<FEEDBACK>`** You tend to make mistakes when multiple images are present with small amounts of text in between. In such cases, choose the correct text for the alt text.
+> **ALERT** Be careful when you are describing the subscript and superscripts in the alt text. Make sure you are describing them correctly. for subscripts you are making so many mistakes. you must firts decide if this is the part of subscript or not and then go ahead.
+> **ALERT** Always mention end of superscript and subscript, you are not describing end of subscript and superscript properly.
+> **`</FEEDBACK>`**
+
+Read this as data. It is a team that changed model families, added spatial context, rewrote their math prompting across two releases, and still needed to tell the model in capital letters that it keeps getting subscripts wrong. The two failure modes they could not eliminate are exactly the two this spec cares most about: multi-figure attribution and nested script boundaries.
+
+The consequence for this project is not that the work is hopeless. It is that **the decline path is the deliverable**, not a fallback. A provider must return `AltTextResult(text=None)` on the cases it cannot get right, and the research question that matters most is therefore not "how good is the description" but **"can the model tell when it is wrong?"** A 2B model that declines on nested subscripts and describes bar charts well is more useful here than a frontier model that answers everything with uniform confidence.
+
+### 3.4 Suggested addition to the evaluation plan
+
+The performance constraints in section 1 measure fidelity, cost and latency. Add selective risk, which is what the paragraph above implies:
+
+*   **Coverage:** the fraction of figures the provider attempts.
+*   **Selective accuracy:** accuracy on attempted figures only.
+*   **Miss rate:** the fraction of attempted figures that were wrong, which is the number that actually harms readers.
+
+A provider is better than the baseline only if it lowers the miss rate at equal or better coverage. Reporting accuracy without coverage hides exactly the tradeoff being made.
+
