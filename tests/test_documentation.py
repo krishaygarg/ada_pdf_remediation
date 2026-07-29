@@ -60,10 +60,13 @@ class TestCoverageClaims:
 class TestAdvertisedCommands:
     @pytest.mark.parametrize("command", ["remediate-pdf", "check-compliance", "ada-ro-bench"])
     def test_every_advertised_command_exists(self, readme: str, command: str) -> None:
-        import tomllib
+        # importlib.metadata rather than tomllib, which is 3.11 and later while
+        # this project supports 3.10. It also reads what was actually installed
+        # rather than what the manifest says, which is the stronger check.
+        from importlib.metadata import entry_points
 
-        manifest = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-        assert command in manifest["project"]["scripts"]
+        scripts = {entry.name for entry in entry_points(group="console_scripts")}
+        assert command in scripts, f"{command} is advertised but not installed"
         assert command in readme
 
     def test_the_documented_flags_are_accepted(self) -> None:

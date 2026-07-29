@@ -16,18 +16,16 @@ from pathlib import Path
 
 import pytest
 
-try:  # Python 3.11 stdlib, backported for 3.10
+try:  # standard from 3.11, backported by tomli for 3.10
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10
-    tomllib = None  # type: ignore[assignment]
+    import tomli as tomllib
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(scope="module")
 def manifest() -> dict:
-    if tomllib is None:  # pragma: no cover - Python 3.10 without tomli
-        pytest.skip("tomllib is unavailable")
     return tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
