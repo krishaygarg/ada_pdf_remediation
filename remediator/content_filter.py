@@ -20,6 +20,12 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
     ``collect["paths"]``
         A ``Box`` bounding each painted path, used to cluster vector artwork
         into candidate figures.
+    ``collect["text"]``
+        A ``Box`` bounding each yielded text block, in the order the blocks are
+        yielded, so the caller can pair them up. The extent comes from the text
+        matrix at each showing operator, widened by the font size, which is
+        enough to place a block on the page even though it is not a precise
+        glyph extent.
 
     Collecting during this walk avoids a second parse of the stream, and the
     transformation matrix is only available here.
@@ -28,6 +34,7 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
 
     images_out = collect.setdefault("images", []) if collect is not None else None
     paths_out = collect.setdefault("paths", []) if collect is not None else None
+    text_out = collect.setdefault("text", []) if collect is not None else None
 
     def _record_path(points):
         if paths_out is None or not points:
@@ -79,6 +86,20 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
     in_text_block = False
     text_block_ops = []
     has_visible_text = False
+    text_points: list[tuple[float, float]] = []
+    font_size = 12.0
+
+    def _record_text_block():
+        if text_out is None:
+            return
+        if not text_points:
+            text_out.append(None)
+            return
+        xs = [x for x, _ in text_points]
+        ys = [y for _, y in text_points]
+        # The recorded points are baseline origins, so the box is grown upward
+        # by the font size and slightly downward for descenders.
+        text_out.append(Box(min(xs), min(ys) - font_size * 0.25, max(xs), max(ys) + font_size))
 
     path_buffer = []
 
@@ -104,6 +125,7 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
             in_text_block = True
             text_block_ops = []
             has_visible_text = False
+            text_points = []
             t_m = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             t_lm = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             t_leading = 0.0
@@ -131,10 +153,19 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
             elif op_name == "TL":
                 if len(operands) >= 1:
                     t_leading = float(operands[0])
+            elif op_name == "Tf" and len(operands) >= 2:
+                try:
+                    font_size = abs(float(operands[1])) or 12.0
+                except (TypeError, ValueError):
+                    font_size = 12.0
             elif op_name in ("'", '"'):
                 tx_o, ty_o = 0.0, -t_leading
                 t_lm = multiply_matrices([1.0, 0.0, 0.0, 1.0, tx_o, ty_o], t_lm)
                 t_m = list(t_lm)
+
+            if op_name in ("Tj", "TJ", "'", '"') and text_out is not None:
+                composed = multiply_matrices(t_m, ctm)
+                text_points.append(transform_point(0.0, 0.0, composed))
 
             # Perform text content visibility check for text showing operators
             if op_name in ("Tj", "TJ", "'", '"'):
@@ -154,6 +185,7 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
             if op_name == "ET":
                 in_text_block = False
                 if has_visible_text:
+                    _record_text_block()
                     yield "text", text_block_ops
                 else:
                     yield "empty_text", text_block_ops

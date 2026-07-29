@@ -47,6 +47,66 @@ def _describe_link_target(annot) -> str:
     return "Link"
 
 
+def _apply_reading_order(
+    strategy_name, document_elem, first_kid_index, text_boxes, page_idx, reporter
+):
+    """Reorder this page's entries in the document's logical tree.
+
+    Two orderings coexist and only one of them is the reading order.
+
+    The parent tree maps a page's key to an array indexed by marked-content
+    identifier, so its order is fixed by the content stream and must not be
+    touched. The document element's /K array is the logical sequence a screen
+    reader follows, and reordering that changes the reading order while leaving
+    both the content stream and the parent tree exactly as they were.
+
+    Elements whose geometry could not be recovered keep their original relative
+    position. A strategy given no coordinates has nothing to work from, and
+    guessing would be worse than leaving them alone.
+    """
+    from .roeval import PageElement, get, validate_ordering
+
+    kids = document_elem.K
+    span = len(kids) - first_kid_index
+    if span < 2:
+        return
+
+    positioned = []
+    for offset in range(span):
+        box = text_boxes[offset] if offset < len(text_boxes) else None
+        if box is None:
+            continue
+        positioned.append(
+            PageElement(
+                id=offset,
+                type=str(kids[first_kid_index + offset].get("/S", "/P")).lstrip("/"),
+                bbox=(box.x0, box.top, box.x1, box.bottom),
+                page_index=page_idx,
+            )
+        )
+
+    if len(positioned) < 2:
+        return
+
+    try:
+        ordered = get(strategy_name).sort(positioned)
+        validate_ordering(positioned, ordered)
+    except Exception as exc:
+        emit(
+            reporter,
+            Stage.ANALYSING_PAGE,
+            f"Reading order strategy {strategy_name!r} failed on page {page_idx + 1}; "
+            f"keeping the stream order ({exc})",
+        )
+        return
+
+    rank = {element.id: position for position, element in enumerate(ordered)}
+    offsets = sorted(range(span), key=lambda offset: (rank.get(offset, offset), offset))
+    reordered = [kids[first_kid_index + offset] for offset in offsets]
+    for position, element in enumerate(reordered):
+        kids[first_kid_index + position] = element
+
+
 def _xml_escape(value: str) -> str:
     """Escape text for inclusion in an XMP character data section."""
     return (
@@ -59,6 +119,7 @@ def remediate_single_pdf(
     output_path: str,
     *,
     undescribed_images: str = "figure",
+    reading_order_strategy: str = "stream-order",
     progress: ProgressReporter | None = None,
 ):
     """Remediate a PDF towards PDF/UA-1 and WCAG conformance.
@@ -66,6 +127,15 @@ def remediate_single_pdf(
     Args:
         input_path: The document to read.
         output_path: Where to write the result. Must differ from the input.
+        reading_order_strategy: Name of a registered reading order strategy.
+            The default, "stream-order", keeps the content stream's own order,
+            which is what this has always done and leaves output unchanged.
+
+            Reordering only becomes useful once one of the algorithms in
+            remediator.reading_order is implemented; see
+            docs/planning/layout_reading_order_proposal.md. Wiring the call site
+            now means that work switches on with a flag rather than needing the
+            pipeline changed.
         progress: Receives structured events as the run proceeds. Defaults to
             printing them, which reproduces the previous console output. Pass
             a reporter to drive a progress bar, or NullReporter to stay silent.
@@ -177,7 +247,11 @@ def remediate_single_pdf(
 
             # Geometry observed while walking the stream, used below to detect
             # figures without parsing the page a second time.
-            geometry: dict[str, list] = {"images": [], "paths": []}
+            geometry: dict[str, list] = {"images": [], "paths": [], "text": []}
+            # Where this page's entries begin in the document's logical tree,
+            # so the reading order can be rearranged without disturbing the
+            # pages already written.
+            first_kid_index = len(document_elem.K)
             page_text = plumbpage.extract_text() or ""
 
             # Filter page contents (strip paths & strip text inside complex bboxes)
@@ -466,6 +540,16 @@ def remediate_single_pdf(
                 pikepage.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(final_ops))
             else:
                 pikepage.Contents = pikepdf.Stream(pdf, b"")
+
+            if reading_order_strategy != "stream-order":
+                _apply_reading_order(
+                    reading_order_strategy,
+                    document_elem,
+                    first_kid_index,
+                    geometry["text"],
+                    page_idx,
+                    reporter,
+                )
 
             all_pages_struct_elems.append(page_struct_elems)
 
