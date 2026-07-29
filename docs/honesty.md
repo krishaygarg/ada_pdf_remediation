@@ -58,6 +58,30 @@ The web interface reported on this with a scorecard reading `100% COMPLIANT` and
 
 A document can be wrong, a checker can be wrong, and an interface can assert a result nobody computed. All three were true here at once.
 
+## Not just us
+
+The third defect is the easy one to read as carelessness. It is worth recording that another team hit it independently, because a mistake two groups make separately is a property of the problem rather than of the people.
+
+[ASUCICREPO/PDF_Accessibility](https://github.com/ASUCICREPO/PDF_Accessibility) is an ASU and AWS PDF remediation pipeline, MIT licensed, with a real post-remediation accessibility check: it calls Adobe's accessibility checker and writes a JSON report to S3. Nothing reads that report.
+
+The output filename carries the claim instead. `COMPLIANT_` is prefixed to the file in the autotag step, which runs *before* the checker:
+
+```python
+s3.upload_fileobj(data, bucket_name, f"temp/{file_basename}/{folder_name}/COMPLIANT_{file_key}")
+```
+
+The checker that runs afterwards then strips the prefix off in order to name its own report:
+
+```python
+file_key_without_compliant = file_key_without_extension.replace("COMPLIANT_", "", 1)
+```
+
+There is no branch anywhere on the verdict. A document is named compliant before anything has assessed it, and the assessment that follows cannot change the name. The interface completes the loop by hardcoding the same string into the download it offers.
+
+This is the defect described above with one difference that makes it worse. A scorecard is markup on a page somebody closes. A filename travels with the document into every inbox, shared drive and course page it reaches, and it arrives asserting conformance in the one place a reader is most likely to trust and least able to check.
+
+Two teams, working separately, both attached a compliance claim to an artefact and both left the thing that would have tested it unread. The claim is cheap to write, the verification is the entire cost, and nothing in a normal review catches the gap because the code that makes the claim looks finished.
+
 ## How the principle shows up in the code
 
 **Unresolvable codes are omitted and counted.** A missing character is visible to a reader; a substituted one is not.
