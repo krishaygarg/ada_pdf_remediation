@@ -362,12 +362,20 @@ class TestStyles:
             ("info", "info-soft"),
             ("good", "good-soft"),
         ]
+        # A margin rather than the bare threshold. A pair measured at 4.502:1
+        # here passed locally and failed in CI, because a different browser
+        # build rounds the OKLCH conversion fractionally differently. Anything
+        # this close to the line is not reliably on the right side of it.
+        required = 4.5
+        margin = 1.04
         for scheme, tokens in (("light", light), ("dark", dark)):
             for foreground, background in pairs:
                 ratio = contrast_ratio(colour(tokens[foreground]), colour(tokens[background]))
-                assert ratio >= 4.5, (
-                    f"{scheme}: {foreground} on {background} is {ratio:.2f}:1, "
-                    "below the 4.5:1 small text requires"
+                assert ratio >= required * margin, (
+                    f"{scheme}: {foreground} on {background} is {ratio:.2f}:1. "
+                    f"Small text needs {required}:1, and this project targets "
+                    f"{required * margin:.2f}:1 so a rounding difference between "
+                    "browsers cannot push it under."
                 )
 
 

@@ -22,10 +22,12 @@
      warmth by default. */
   --ink: oklch(0.22 0.014 235);
   --ink-soft: oklch(0.44 0.016 235);
-  /* 0.55 rather than a lighter value: this carries the finding metadata at
-     --text-xs, and the project's own contrast engine measured 0.58 at 4.27:1,
-     under the 4.5:1 small text needs. Caught by the tool on its own interface. */
-  --ink-faint: oklch(0.55 0.014 235);
+  /* Carries the finding metadata and log timestamps at --text-xs, so it needs
+     4.5:1 as small text. It is set well clear of that rather than at it: 0.58
+     measured 4.27:1, and 0.55 measured 4.502:1, which passed locally and failed
+     in CI because a different browser build rounds the OKLCH conversion
+     fractionally differently. A threshold met by 0.002 is not met. */
+  --ink-faint: oklch(0.52 0.014 235);
   --line: oklch(0.9 0.008 235);
   --line-strong: oklch(0.82 0.012 235);
   --surface: oklch(1 0 0);
@@ -98,7 +100,8 @@
   :root {
     --ink: oklch(0.94 0.008 235);
     --ink-soft: oklch(0.76 0.012 235);
-    --ink-faint: oklch(0.62 0.012 235);
+    /* Same reasoning as the light theme: comfortable headroom, not a hair. */
+    --ink-faint: oklch(0.66 0.012 235);
     --line: oklch(0.32 0.012 235);
     --line-strong: oklch(0.42 0.016 235);
     --surface: oklch(0.21 0.014 235);
