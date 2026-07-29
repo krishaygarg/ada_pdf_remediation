@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Job endpoints are per-upload and expire after an hour; there is nothing to index.
+Disallow: /api/
+
+Sitemap: https://ada-pdf-remediator.pages.dev/sitemap.xml

@@ -1,0 +1,58 @@
+name: Documentation
+
+# The documentation is markdown in the repository, which GitHub renders
+# directly, Mermaid diagrams included. There is no site to build or deploy, so
+# this job exists for one reason: the conformance rule catalogue is generated
+# from the rule registry, and a page that disagrees with the tool is worse than
+# no page.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "remediator/audit/**"
+      - "scripts/generate_rule_catalogue.py"
+      - "docs/**"
+  pull_request:
+    paths:
+      - "remediator/audit/**"
+      - "scripts/generate_rule_catalogue.py"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  catalogue:
+    name: Rule catalogue is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Regenerate
+        run: python scripts/generate_rule_catalogue.py
+
+      - name: Fail if the committed copy is stale
+        run: |
+          if ! git diff --quiet docs/reference/rules.md; then
+            echo "docs/reference/rules.md is out of date. Run:"
+            echo "  python scripts/generate_rule_catalogue.py"
+            git diff docs/reference/rules.md
+            exit 1
+          fi
+          echo "The catalogue matches the registry."

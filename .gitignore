@@ -60,6 +60,8 @@ experimental/
 remediated_*.pdf
 *_with_bboxes.pdf
 *.png
+# Interface assets are part of the deliverable, not build debris.
+!web/*.png
 
 # Model weights
 *.pt
