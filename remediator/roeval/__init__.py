@@ -12,6 +12,12 @@ for the harness to report.
 
 from __future__ import annotations
 
+# The built-ins are wired up here rather than from inside the registry. Every
+# adapter imports the registry to call register(), so a registry that imported
+# the adapters back would form a cycle. Importing a submodule cannot happen
+# without this file running first, so anything that reaches the registry finds
+# the built-ins already present.
+from . import adapters as _adapters
 from .dataset import BenchmarkPage, DatasetError, load_dataset, write_dataset
 from .runner import StrategyResult, run_benchmark, run_strategy, to_json, to_markdown
 from .strategy import (
@@ -23,6 +29,8 @@ from .strategy import (
     register,
     validate_ordering,
 )
+
+_adapters.register_all()
 
 __all__ = [
     "ENTRY_POINT_GROUP",
