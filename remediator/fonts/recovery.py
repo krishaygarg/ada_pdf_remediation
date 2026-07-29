@@ -16,6 +16,7 @@ recoverable by the reader.
 from __future__ import annotations
 
 import enum
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,12 @@ from .tounicode import build_tounicode_cmap, parse_tounicode_cmap
 if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
     import pikepdf
 
+#: An unreadable source is not fatal here, because a later source may still
+#: resolve the code and an unresolved code is reported rather than filled. The
+#: reason is logged so that "nothing to recover" and "could not read it" stay
+#: distinguishable, which is the distinction this module exists to preserve.
+_LOG = logging.getLogger(__name__)
+
 
 class Source(enum.Enum):
     """Where a mapping entry came from, most authoritative first."""
@@ -37,13 +44,12 @@ class Source(enum.Enum):
     BASE_ENCODING = "predefined base encoding"
 
 
-#: Consulted in this order; an earlier source is never overwritten by a later one.
-SOURCE_PRIORITY = (
-    Source.EXISTING_TOUNICODE,
-    Source.EMBEDDED_PROGRAM,
-    Source.ENCODING_DIFFERENCES,
-    Source.BASE_ENCODING,
-)
+#: Consulted in this order; an earlier source is never overwritten by a later
+#: one, which ``RecoveredMapping.add`` enforces by refusing to rewrite a code.
+#:
+#: Derived from the enum rather than restated, because a second hand-written
+#: ordering is one that can disagree with the first without anything failing.
+SOURCE_PRIORITY = tuple(Source)
 
 
 @dataclass
@@ -68,10 +74,21 @@ class RecoveredMapping:
         return len(self.mapping)
 
     def counts_by_source(self) -> dict[str, int]:
+        """How many codes each source resolved, most authoritative source first.
+
+        Ordered by ``SOURCE_PRIORITY`` rather than by whichever source happened
+        to resolve a code first, so two runs over the same font produce the same
+        report and a reader can see at a glance how much of the mapping rests on
+        the weakest source.
+        """
         counts: dict[str, int] = {}
         for source in self.provenance.values():
             counts[source.value] = counts.get(source.value, 0) + 1
-        return counts
+        return {
+            source.value: counts[source.value]
+            for source in SOURCE_PRIORITY
+            if source.value in counts
+        }
 
     def to_cmap(self) -> str:
         return build_tounicode_cmap(
@@ -134,7 +151,12 @@ def recover_mapping(font: pikepdf.Object, font_name: str | None = None) -> Recov
                         continue
                     result.add(code, text, Source.EXISTING_TOUNICODE)
         except Exception:
-            pass
+            _LOG.debug(
+                "could not parse the existing /ToUnicode for %s; falling through to the "
+                "font's own encoding",
+                name,
+                exc_info=True,
+            )
 
     # 2. The embedded program, which is the only source for a symbolic font.
     descendant = font
