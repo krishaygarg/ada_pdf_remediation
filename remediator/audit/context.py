@@ -8,6 +8,7 @@ so adding a rule costs a predicate rather than another parse of the document.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -16,6 +17,12 @@ from pathlib import Path
 import pikepdf
 
 from .model import Location
+
+#: A malformed structure tree is the normal case for the documents this audits,
+#: so reading it defensively is correct. The reason is logged rather than
+#: dropped, because a rule that saw an empty role map and one that failed to
+#: read the role map produce the same findings and must not look identical.
+_LOG = logging.getLogger(__name__)
 
 #: Structure types defined by ISO 32000-1 14.8.4. Anything outside this set has
 #: to be mapped to a standard type through the role map to be meaningful.
@@ -171,7 +178,7 @@ class DocumentContext:
             for key, value in raw.items():
                 mapping[str(key).lstrip("/")] = str(value).lstrip("/")
         except Exception:
-            pass
+            _LOG.debug("could not read /RoleMap; treating it as empty", exc_info=True)
         return mapping
 
     def resolve_role(self, tag: str, _seen: frozenset[str] = frozenset()) -> str:

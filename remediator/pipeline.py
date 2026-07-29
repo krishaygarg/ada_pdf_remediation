@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timezone
 
@@ -20,6 +21,12 @@ from .progress import ConsoleReporter, ProgressReporter, Stage, emit
 #: Namespace URI of the PDF/UA identification schema, ISO 14289-1 clause 5.
 #: The conventional prefix is "pdfuaid" but the URI path segment is "pdfua".
 PDFUA_ID_NAMESPACE = "http://www.aiim.org/pdfua/ns/id/"
+
+#: Malformed input is expected here, so the guards below continue rather than
+#: abort. They log at debug level instead of discarding the reason outright: a
+#: document this tool silently gave up on part of is exactly the case that is
+#: impossible to diagnose afterwards from a clean-looking run.
+_LOG = logging.getLogger(__name__)
 
 
 def _describe_link_target(annot) -> str:
@@ -44,7 +51,7 @@ def _describe_link_target(annot) -> str:
         if "/Dest" in annot:
             return "Link to another location in this document"
     except Exception:
-        pass
+        _LOG.debug("could not read a link annotation's destination", exc_info=True)
     return "Link"
 
 
@@ -465,9 +472,13 @@ def remediate_single_pdf(
                                 document_elem.K.append(link_elem)
                                 annotation_parent_entries.append((link_key, link_elem))
                             except Exception:
-                                pass
+                                _LOG.debug(
+                                    "skipped tagging a link annotation on page %d",
+                                    page_idx + 1,
+                                    exc_info=True,
+                                )
                 except Exception:
-                    pass
+                    _LOG.debug("could not read /Annots on page %d", page_idx + 1, exc_info=True)
 
             # Balance the graphics state stack opened at the top of the page.
             #
@@ -674,7 +685,11 @@ def remediate_single_pdf(
                                     seen_fonts.add(marker)
                                 font_objs.append(f_obj)
         except Exception:
-            pass
+            # Partial collection is still worth processing: the fonts gathered
+            # before the failure get their mappings recovered. The count that
+            # follows is reported against font_objs, so it stays truthful about
+            # what was actually examined.
+            _LOG.debug("stopped collecting fonts after %d", len(font_objs), exc_info=True)
 
         unresolved_total = 0
         for idx, obj in enumerate(font_objs):
