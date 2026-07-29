@@ -1,0 +1,21 @@
+{
+  "//": "Lighthouse budget for the interface. Kept in a file rather than on the command line because the assertion shape is nested and does not survive flag flattening. The sandbox flags match .pa11y.json: GitHub's runners disable unprivileged user namespaces, so Chromium cannot start its own sandbox.",
+  "ci": {
+    "collect": {
+      "numberOfRuns": 1,
+      "settings": {
+        "chromeFlags": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage",
+        "preset": "desktop"
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 1 }],
+        "categories:seo": ["error", { "minScore": 0.95 }],
+        "categories:best-practices": ["warn", { "minScore": 0.95 }],
+        "categories:performance": ["warn", { "minScore": 0.9 }]
+      }
+    },
+    "upload": { "target": "filesystem", "outputDir": "./lighthouse" }
+  }
+}
