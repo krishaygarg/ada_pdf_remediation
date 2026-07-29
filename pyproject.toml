@@ -73,6 +73,7 @@ Changelog = "https://github.com/krishaygarg/ada_pdf_remediation/releases"
 [project.scripts]
 remediate-pdf = "remediator.cli.remediate:main"
 check-compliance = "remediator.cli.compliance:main"
+ada-ro-bench = "remediator.roeval.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -132,7 +133,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001", "ARG002"]
+"tests/*" = ["ARG001", "ARG002", "ARG005"]
 
 # These modules exist to handle characters that look like other characters.
 # The ambiguous-character rules would forbid writing the very cases under test,
@@ -183,6 +184,7 @@ files = [
     "remediator/alttext",
     "remediator/fonts",
     "remediator/geometry",
+    "remediator/roeval",
     "remediator/numbertree.py",
 ]
 
