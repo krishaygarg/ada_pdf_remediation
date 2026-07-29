@@ -127,6 +127,14 @@ def build_figure_element(
     return pdf.make_indirect(element)
 
 
+#: One entry awaiting interleaving: vertical position, a tie break placing text
+#: before a figure at the same offset, the text, and the figure's index.
+#: Declared at module scope rather than inside the function because
+#: `from __future__ import annotations` leaves annotations unevaluated, so a
+#: local alias used only in one is dead code at runtime.
+_SortableItem = tuple[float, int, str, "int | None"]
+
+
 def build_page_spans(
     text_lines: Sequence[tuple[str, float]],
     figures: Sequence[DetectedFigure],
@@ -142,8 +150,7 @@ def build_page_spans(
     that needs to know should compare span order against the page geometry
     rather than assume this is authoritative.
     """
-    Item = tuple[float, int, str, int | None]
-    items: list[Item] = [(top, 0, text, None) for text, top in text_lines]
+    items: list[_SortableItem] = [(top, 0, text, None) for text, top in text_lines]
     items += [(figure.bbox.top, 1, "", index) for index, figure in enumerate(figures)]
     # Ties break towards the text, so a line level with a figure's top edge
     # reads as introducing it. The case that actually matters needs no tie
