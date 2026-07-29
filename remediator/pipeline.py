@@ -9,6 +9,7 @@ from .content_filter import filter_page_content
 from .figures import DetectedFigure, build_figure_element, describe_figures, detect_vector_figures
 from .font_patcher import recover_font_mapping
 from .numbertree import build_number_tree
+from .progress import ConsoleReporter, ProgressReporter, Stage, emit
 
 #: An image smaller than this fraction of the page is a bullet, a rule or a
 #: spacer. Tagging each as a figure fills the reading order with elements a
@@ -58,12 +59,16 @@ def remediate_single_pdf(
     output_path: str,
     *,
     undescribed_images: str = "figure",
+    progress: ProgressReporter | None = None,
 ):
     """Remediate a PDF towards PDF/UA-1 and WCAG conformance.
 
     Args:
         input_path: The document to read.
         output_path: Where to write the result. Must differ from the input.
+        progress: Receives structured events as the run proceeds. Defaults to
+            printing them, which reproduces the previous console output. Pass
+            a reporter to drive a progress bar, or NullReporter to stay silent.
         undescribed_images: What to do with an image that no provider could
             describe. ``"figure"``, the default, tags it as content and leaves
             the description missing, so the audit reports it and a person can
@@ -92,7 +97,8 @@ def remediate_single_pdf(
             "Choose a different output path."
         )
 
-    print(f"[REMEDIATOR] Opening input PDF: {input_path}")
+    reporter: ProgressReporter = progress if progress is not None else ConsoleReporter()
+    emit(reporter, Stage.OPENING, f"Opening {os.path.basename(input_path)}")
 
     with pikepdf.open(input_path) as pdf, pdfplumber.open(input_path) as plumber:
         # 1. INITIALIZATION & CATALOG SETUP
@@ -132,8 +138,12 @@ def remediate_single_pdf(
 
         # Loop through pages
         for page_idx, (pikepage, plumbpage) in enumerate(zip(pdf.pages, plumber.pages)):
-            print(
-                f"[REMEDIATOR] Segmenting and reconstructing Page {page_idx + 1}/{len(pdf.pages)}..."
+            emit(
+                reporter,
+                Stage.ANALYSING_PAGE,
+                f"Analysing page {page_idx + 1} of {len(pdf.pages)}",
+                current=page_idx + 1,
+                total=len(pdf.pages),
             )
 
             page_width = float(plumbpage.width)
@@ -403,7 +413,13 @@ def remediate_single_pdf(
             # matrices are interpreted against the identity transform rather
             # than whatever the page's own content left in place.
             if len(page_text.strip()) < 10:
-                print("  - Scanned image page detected! Generating invisible OCR text layer...")
+                emit(
+                    reporter,
+                    Stage.RECOGNISING_TEXT,
+                    f"Page {page_idx + 1} looks scanned; recognising its text",
+                    current=page_idx + 1,
+                    total=len(pdf.pages),
+                )
                 from .ocr_engine import generate_ocr_text_ops
 
                 ocr_ops, ocr_elems, mcid = generate_ocr_text_ops(
@@ -436,9 +452,13 @@ def remediate_single_pdf(
                 )
                 if regions:
                     vector_regions_found += len(regions)
-                    print(
-                        f"  - {len(regions)} vector region(s) on this page may be figures; "
-                        "they are kept as artifacts pending review"
+                    emit(
+                        reporter,
+                        Stage.TAGGING_FIGURES,
+                        f"{len(regions)} vector region(s) on page {page_idx + 1} may be "
+                        "figures; kept as artifacts pending review",
+                        regions=len(regions),
+                        page=page_idx + 1,
                     )
 
             # Write reconstructed stream back to the page contents
@@ -546,7 +566,8 @@ def remediate_single_pdf(
         document_elem["/P"] = struct_tree_root
         root["/StructTreeRoot"] = struct_tree_root
 
-        print("[REMEDIATOR] Recovering font character mappings...")
+        emit(reporter, Stage.BUILDING_STRUCTURE, "Building the structure tree")
+        emit(reporter, Stage.RECOVERING_FONTS, "Recovering font character mappings")
         font_objs = []
         seen_fonts: set[tuple[int, int]] = set()
         try:
@@ -578,7 +599,12 @@ def remediate_single_pdf(
                 # a good map keeps it and one with a partial map gains the rest.
                 recovered = recover_font_mapping(obj, base_font)
                 if not recovered.mapping:
-                    print(f"  - {base_font}: no character mapping could be recovered")
+                    emit(
+                        reporter,
+                        Stage.RECOVERING_FONTS,
+                        f"{base_font}: no character mapping could be recovered",
+                        font=base_font,
+                    )
                     continue
 
                 cmap_stream = pikepdf.Stream(pdf, recovered.to_cmap().encode("utf-8"))
@@ -588,39 +614,62 @@ def remediate_single_pdf(
                     f"{count} from {source}"
                     for source, count in recovered.counts_by_source().items()
                 )
-                print(f"  - {base_font}: {recovered.resolved_count} codes mapped ({summary})")
+                emit(
+                    reporter,
+                    Stage.RECOVERING_FONTS,
+                    f"{base_font}: {recovered.resolved_count} codes mapped ({summary})",
+                    font=base_font,
+                    mapped=recovered.resolved_count,
+                )
 
                 if recovered.unresolved_glyphs:
                     unresolved_total += len(recovered.unresolved_glyphs)
                     names = sorted(set(recovered.unresolved_glyphs.values()))[:6]
-                    print(
-                        f"      {len(recovered.unresolved_glyphs)} codes left unmapped "
-                        f"(glyphs: {', '.join(names)})"
+                    emit(
+                        reporter,
+                        Stage.RECOVERING_FONTS,
+                        f"{base_font}: {len(recovered.unresolved_glyphs)} codes left "
+                        f"unmapped (glyphs: {', '.join(names)})",
+                        font=base_font,
+                        unresolved=len(recovered.unresolved_glyphs),
                     )
             except Exception as e:
-                print(f"  - {base_font}: recovery failed, leaving the font unchanged ({e})")
+                emit(
+                    reporter,
+                    Stage.RECOVERING_FONTS,
+                    f"{base_font}: recovery failed, leaving the font unchanged ({e})",
+                    font=base_font,
+                )
                 _ = idx
 
         if figures_needing_review:
-            print(
-                f"[REMEDIATOR] {figures_needing_review} figure(s) need a human description. "
-                "No placeholder text was invented for them."
+            emit(
+                reporter,
+                Stage.TAGGING_FIGURES,
+                f"{figures_needing_review} figure(s) need a human description. "
+                "No placeholder text was invented for them.",
+                figures_needing_review=figures_needing_review,
             )
         if vector_regions_found:
-            print(
-                f"[REMEDIATOR] {vector_regions_found} vector region(s) look like figures "
-                "and are candidates for manual tagging."
+            emit(
+                reporter,
+                Stage.TAGGING_FIGURES,
+                f"{vector_regions_found} vector region(s) look like figures and are "
+                "candidates for manual tagging.",
+                vector_regions=vector_regions_found,
             )
 
         if unresolved_total:
             # Reported rather than papered over. A code mapped to a space looks
             # like success and silently deletes text from the document.
-            print(
-                f"[REMEDIATOR] {unresolved_total} character codes could not be resolved "
-                "and were left unmapped."
+            emit(
+                reporter,
+                Stage.RECOVERING_FONTS,
+                f"{unresolved_total} character codes could not be resolved and were left unmapped.",
+                unresolved=unresolved_total,
             )
 
-        print(f"[REMEDIATOR] Saving remediated PDF output: {output_path}")
+        emit(reporter, Stage.WRITING, f"Writing {os.path.basename(output_path)}")
         pdf.save(output_path)
 
-    print("[REMEDIATOR] Pipeline completed successfully!")
+    emit(reporter, Stage.DONE, "Remediation finished")
