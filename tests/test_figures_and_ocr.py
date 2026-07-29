@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import pikepdf
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from PIL import Image
 
 from remediator.alttext import (
+    OTHER_MARKER,
+    TARGET_MARKER,
     AltTextProvider,
     AltTextResult,
     FigureContext,
     NeedsReviewProvider,
+    PageSpan,
     available_providers,
     get_provider,
     register_provider,
@@ -21,6 +26,7 @@ from remediator.alttext import (
 from remediator.figures import (
     DetectedFigure,
     build_figure_element,
+    build_page_spans,
     describe_figures,
     detect_image_figures,
     detect_vector_figures,
@@ -263,6 +269,281 @@ class TestAltTextProviders:
     def test_an_unknown_provider_name_is_refused_with_the_known_ones(self) -> None:
         with pytest.raises(LookupError, match="needs-review"):
             get_provider("no-such-provider")
+
+
+def _figure(top: float, *, kind: str = "image") -> DetectedFigure:
+    return DetectedFigure(bbox=Box(x0=100, top=top, x1=300, bottom=top + 80), kind=kind)
+
+
+class TestPageSpans:
+    """Two figures on a page share almost all of their nearby text, so nearby
+    text alone cannot say which caption belongs to which."""
+
+    def test_text_and_figures_interleave_by_vertical_position(self) -> None:
+        spans = build_page_spans(
+            [("Intro paragraph", 10.0), ("Figure 1. A trajectory", 100.0), ("Closing", 300.0)],
+            [_figure(50.0)],
+        )
+        assert [(s.text, s.figure_index) for s in spans] == [
+            ("Intro paragraph", None),
+            ("", 0),
+            ("Figure 1. A trajectory\nClosing", None),
+        ]
+
+    def test_consecutive_lines_merge_into_one_span(self) -> None:
+        """A provider should see paragraphs, not one span per line."""
+        spans = build_page_spans([("one", 1.0), ("two", 2.0), ("three", 3.0)], [])
+        assert len(spans) == 1
+        assert spans[0].text == "one\ntwo\nthree"
+
+    def test_a_caption_below_its_image_sorts_after_the_figure(self) -> None:
+        """The case that matters, and it needs no tie break: a caption sits
+        below its image, so its top is the larger number."""
+        spans = build_page_spans([("Figure 1. Caption", 140.0)], [_figure(50.0)])
+        assert spans[0].is_figure
+        assert spans[1].text == "Figure 1. Caption"
+
+    def test_a_line_level_with_the_top_edge_reads_as_introducing_the_figure(self) -> None:
+        spans = build_page_spans([("Results", 50.0)], [_figure(50.0)])
+        assert spans[0].text == "Results"
+        assert spans[1].is_figure
+
+    def test_each_figure_marks_itself_and_distinguishes_the_others(self) -> None:
+        figures = [_figure(50.0), _figure(400.0)]
+        described = describe_figures(
+            figures,
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            text_lines=[
+                ("Figure 1. The first one", 140.0),
+                ("Figure 2. The second one", 490.0),
+            ],
+            provider=_Capturing(),
+        )
+        assert len(described) == 2
+
+        first, second = _Capturing.seen[-2], _Capturing.seen[-1]
+        assert first.figure_index == 0
+        assert second.figure_index == 1
+
+        # The marker moves; the page content does not.
+        assert first.marked_page_text().index(TARGET_MARKER) < first.marked_page_text().index(
+            OTHER_MARKER
+        )
+        assert second.marked_page_text().index(OTHER_MARKER) < second.marked_page_text().index(
+            TARGET_MARKER
+        )
+        assert "Figure 1." in first.marked_page_text()
+        assert "Figure 2." in first.marked_page_text()
+
+    def test_siblings_exclude_the_figure_itself(self) -> None:
+        figures = [_figure(50.0), _figure(400.0), _figure(600.0)]
+        describe_figures(
+            figures,
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            text_lines=[("x", 1.0)],
+            provider=_Capturing(),
+        )
+        for position, context in enumerate(_Capturing.seen[-3:]):
+            assert len(context.sibling_bboxes) == 2
+            assert context.bbox not in context.sibling_bboxes
+            assert not context.is_only_figure_on_page
+            assert context.figure_index == position
+
+    def test_a_lone_figure_reports_itself_as_the_only_one(self) -> None:
+        describe_figures(
+            [_figure(50.0)],
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            text_lines=[("x", 1.0)],
+            provider=_Capturing(),
+        )
+        assert _Capturing.seen[-1].is_only_figure_on_page
+
+    def test_a_caller_describing_one_figure_still_learns_of_the_others(self) -> None:
+        """The pipeline tags figures as it walks the stream, one at a time. Its
+        sibling context has to come from the page rather than from the call."""
+        on_page = [_figure(50.0), _figure(400.0)]
+        describe_figures(
+            [on_page[1]],
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            text_lines=[("x", 1.0)],
+            page_figures=on_page,
+            provider=_Capturing(),
+        )
+        context = _Capturing.seen[-1]
+        assert context.figure_index == 1
+        assert context.sibling_bboxes == ((100.0, 50.0, 300.0, 130.0),)
+
+    def test_without_positions_the_marked_text_is_empty_rather_than_misleading(self) -> None:
+        """An empty string means "no page context", which a provider must not
+        confuse with an empty page."""
+        describe_figures(
+            [_figure(50.0)],
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            page_text="some text with no positions",
+            provider=_Capturing(),
+        )
+        context = _Capturing.seen[-1]
+        assert context.page_spans == ()
+        assert context.marked_page_text() == ""
+        assert context.page_text == ""
+        assert context.nearby_text == "some text with no positions"
+
+    def test_page_text_omits_the_figure_markers(self) -> None:
+        context = FigureContext(
+            page_index=0,
+            bbox=(0, 0, 1, 1),
+            page_width=1,
+            page_height=1,
+            figure_index=0,
+            page_spans=(PageSpan(text="above"), PageSpan(figure_index=0), PageSpan(text="below")),
+        )
+        assert context.page_text == "above\nbelow"
+        assert context.marked_page_text() == f"above\n{TARGET_MARKER}\nbelow"
+
+    def test_an_unplaceable_figure_marks_nothing_rather_than_the_wrong_thing(self) -> None:
+        """The bug this guards against: an unmatched figure reporting index 0
+        claims to be the first figure on the page, so it received a different
+        figure's caption and described it confidently."""
+        describe_figures(
+            [_figure(50.0)],
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            text_lines=[("Figure 1. Something else", 900.0)],
+            page_figures=[_figure(5000.0)],  # nothing overlapping the subject
+            provider=_Capturing(),
+        )
+        context = _Capturing.seen[-1]
+        assert context.figure_index is None
+        assert not context.has_page_context
+        assert context.marked_page_text() == ""
+
+    def test_a_region_is_matched_despite_rounding_between_detectors(self) -> None:
+        """The two sources of a figure's geometry come through different
+        libraries and disagree in the last decimal place."""
+        subject = DetectedFigure(bbox=Box(x0=100.0, top=50.0, x1=300.0, bottom=130.0), kind="image")
+        rounded = DetectedFigure(
+            bbox=Box(x0=100.002, top=49.998, x1=299.997, bottom=130.004), kind="image"
+        )
+        describe_figures(
+            [subject],
+            page_index=0,
+            page_width=612,
+            page_height=792,
+            text_lines=[("x", 1.0)],
+            page_figures=[_figure(400.0), rounded],
+            provider=_Capturing(),
+        )
+        assert _Capturing.seen[-1].figure_index == 1
+
+
+class TestPageContextThroughThePipeline:
+    """The unit tests above can pass while the pipeline feeds the interface
+    inconsistent coordinates, which is exactly what happened: both figures on a
+    page reported themselves as figure zero and received identical context."""
+
+    @staticmethod
+    def _two_figure_document(directory: Path) -> Path:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfgen import canvas
+
+        for name, colour in (("a.png", (200, 40, 40)), ("b.png", (40, 80, 200))):
+            Image.new("RGB", (240, 160), colour).save(directory / name)
+
+        source = directory / "two_figures.pdf"
+        page = canvas.Canvas(str(source), pagesize=letter)
+        page.setFont("Helvetica", 11)
+        page.drawString(72, 730, "Introduction to projectile motion")
+        page.drawImage(str(directory / "a.png"), 72, 560, width=240, height=150)
+        page.drawString(72, 545, "Figure 1. Trajectory for three launch angles")
+        page.drawImage(str(directory / "b.png"), 72, 300, width=240, height=150)
+        page.drawString(72, 285, "Figure 2. Terminal velocity against mass")
+        page.showPage()
+        page.save()
+        return source
+
+    @pytest.mark.slow
+    def test_each_figure_on_a_page_receives_its_own_caption(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from remediator import pipeline
+        from remediator.progress import NullReporter
+
+        source = self._two_figure_document(tmp_path)
+        seen: list[FigureContext] = []
+
+        class Spy:
+            name = "spy"
+
+            def describe(self, figure: FigureContext) -> AltTextResult:
+                seen.append(figure)
+                return AltTextResult(text=None)
+
+        monkeypatch.setattr(pipeline, "get_provider", lambda *a, **k: Spy())
+        pipeline.remediate_single_pdf(
+            str(source), str(tmp_path / "out.pdf"), progress=NullReporter()
+        )
+
+        assert len(seen) == 2, "both images should have been offered for description"
+        assert [context.figure_index for context in seen] == [0, 1], (
+            "each figure must locate itself, not default to the first"
+        )
+        assert all(context.has_page_context for context in seen)
+
+        first, second = (context.marked_page_text() for context in seen)
+        assert first != second, "identical context defeats the purpose of tracking position"
+        # The marker sits immediately before the caption that belongs to it.
+        assert TARGET_MARKER + "\nFigure 1." in first
+        assert TARGET_MARKER + "\nFigure 2." in second
+        assert OTHER_MARKER + "\nFigure 2." in first
+        assert OTHER_MARKER + "\nFigure 1." in second
+
+
+class TestReadingSpaceConversion:
+    """The content stream measures up from the bottom of the page; pdfplumber
+    measures down from the top. Mixing them silently breaks figure placement."""
+
+    def test_a_box_is_flipped_about_the_page_height(self) -> None:
+        from remediator.pipeline import _to_reading_space
+
+        # An image drawn at y=560 with height 150 on a 792pt page.
+        converted = _to_reading_space(Box(x0=72, top=560, x1=312, bottom=710), 792.0)
+        assert converted == Box(x0=72, top=82.0, x1=312, bottom=232.0)
+
+    def test_conversion_is_its_own_inverse(self) -> None:
+        from remediator.pipeline import _to_reading_space
+
+        original = Box(x0=10, top=100, x1=200, bottom=300)
+        assert _to_reading_space(_to_reading_space(original, 792.0), 792.0) == original
+
+    def test_conversion_preserves_height_and_horizontal_extent(self) -> None:
+        from remediator.pipeline import _to_reading_space
+
+        original = Box(x0=10, top=100, x1=200, bottom=300)
+        converted = _to_reading_space(original, 792.0)
+        assert converted.height == original.height
+        assert (converted.x0, converted.x1) == (original.x0, original.x1)
+
+
+class _Capturing:
+    """Records the contexts it is handed, so the wiring can be asserted on."""
+
+    name = "capturing"
+    seen: ClassVar[list[FigureContext]] = []
+
+    def describe(self, figure: FigureContext) -> AltTextResult:
+        _Capturing.seen.append(figure)
+        return AltTextResult(text=None)
 
     def test_a_provider_without_a_name_is_refused(self) -> None:
         class Nameless:
