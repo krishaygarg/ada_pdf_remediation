@@ -6,6 +6,44 @@ import pikepdf
 
 from .content_filter import filter_page_content
 from .font_patcher import generate_tounicode_cmap
+from .numbertree import build_number_tree
+
+#: Namespace URI of the PDF/UA identification schema, ISO 14289-1 clause 5.
+#: The conventional prefix is "pdfuaid" but the URI path segment is "pdfua".
+PDFUA_ID_NAMESPACE = "http://www.aiim.org/pdfua/ns/id/"
+
+
+def _describe_link_target(annot) -> str:
+    """Return a human readable description of where a link annotation leads.
+
+    Falls back to a generic phrase when the destination cannot be read, which
+    still satisfies the requirement for a non-empty description while making it
+    obvious in review that the link deserves a better one.
+    """
+    try:
+        action = annot.get("/A")
+        if isinstance(action, pikepdf.Dictionary):
+            subtype = str(action.get("/S", ""))
+            if subtype == "/URI":
+                uri = str(action.get("/URI", "")).strip()
+                if uri:
+                    return f"Link to {uri}"
+            elif subtype in ("/GoTo", "/GoToR"):
+                return "Link to another location in this document"
+            elif subtype == "/Launch":
+                return "Link that opens an external file"
+        if "/Dest" in annot:
+            return "Link to another location in this document"
+    except Exception:
+        pass
+    return "Link"
+
+
+def _xml_escape(value: str) -> str:
+    """Escape text for inclusion in an XMP character data section."""
+    return (
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    )
 
 
 def remediate_single_pdf(input_path: str, output_path: str):
@@ -14,6 +52,15 @@ def remediate_single_pdf(input_path: str, output_path: str):
     """
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input PDF not found: {input_path}")
+
+    # Writing over the source would destroy the only copy of the original if
+    # remediation failed partway through. The underlying library rejects this
+    # too, but with a message about its own API rather than about the call.
+    if os.path.exists(output_path) and os.path.samefile(input_path, output_path):
+        raise ValueError(
+            f"Refusing to overwrite the input document: {input_path}. "
+            "Choose a different output path."
+        )
 
     print(f"[REMEDIATOR] Opening input PDF: {input_path}")
 
@@ -42,6 +89,12 @@ def remediate_single_pdf(input_path: str, output_path: str):
         )
 
         all_pages_struct_elems = []
+
+        # Annotations share the structure parent tree with pages but occupy
+        # their own keys. Page k uses key k, so annotation keys start above the
+        # last page and are handed out from this counter.
+        annotation_parent_entries: list[tuple[int, pikepdf.Object]] = []
+        next_struct_parent_key = len(pdf.pages)
 
         # Loop through pages
         for page_idx, (pikepage, plumbpage) in enumerate(zip(pdf.pages, plumber.pages)):
@@ -174,39 +227,68 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         final_ops.append(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
 
-            # Tag Link Annotations on page for WCAG 1.3.1 & WCAG 2.4.4
+            # Tag Link annotations for WCAG 1.3.1 and 2.4.4.
+            #
+            # ISO 32000-1 14.7.4.4 gives annotations their own key space in the
+            # structure parent tree: /StructParent on an annotation resolves to
+            # a single structure element, whereas /StructParents on a page
+            # resolves to an array indexed by marked-content identifier. Reusing
+            # the page's index for both, as this previously did, makes one key
+            # mean two different things and leaves the annotation unreachable
+            # from the tree.
             if "/Annots" in pikepage:
                 try:
                     annots = pikepage.Annots
                     if isinstance(annots, pikepdf.Array):
                         for annot in annots:
                             try:
-                                if hasattr(annot, "get") and annot.get("/Subtype") == pikepdf.Name(
-                                    "/Link"
+                                if not hasattr(annot, "get"):
+                                    continue
+                                if annot.get("/Subtype") != pikepdf.Name("/Link"):
+                                    continue
+                                link_key = next_struct_parent_key
+                                next_struct_parent_key += 1
+                                annot["/StructParent"] = pikepdf.Integer(link_key)
+
+                                # ISO 14289-1 7.18.5 requires a link to carry an
+                                # alternate description in /Contents. Describing
+                                # the destination is more useful to a screen
+                                # reader than a generic word such as "Hyperlink",
+                                # which conveys only what the tag already says.
+                                if (
+                                    "/Contents" not in annot
+                                    or not str(annot.get("/Contents", "")).strip()
                                 ):
-                                    annot["/StructParent"] = pikepdf.Integer(page_idx)
-                                    link_elem = pdf.make_indirect(
-                                        pikepdf.Dictionary(
-                                            Type=pikepdf.Name("/StructElem"),
-                                            S=pikepdf.Name("/Link"),
-                                            P=document_elem,
-                                            Pg=pikepage.obj,
-                                            Alt=pikepdf.String("Hyperlink"),
-                                            K=pikepdf.Dictionary(
-                                                Type=pikepdf.Name("/OBJR"),
-                                                Obj=annot,
-                                                Pg=pikepage.obj,
-                                            ),
-                                        )
+                                    annot["/Contents"] = pikepdf.String(
+                                        _describe_link_target(annot)
                                     )
-                                    document_elem.K.append(link_elem)
-                                    page_struct_elems.append(link_elem)
+
+                                link_elem = pdf.make_indirect(
+                                    pikepdf.Dictionary(
+                                        Type=pikepdf.Name("/StructElem"),
+                                        S=pikepdf.Name("/Link"),
+                                        P=document_elem,
+                                        Pg=pikepage.obj,
+                                        Alt=annot["/Contents"],
+                                        K=pikepdf.Dictionary(
+                                            Type=pikepdf.Name("/OBJR"),
+                                            Obj=annot,
+                                            Pg=pikepage.obj,
+                                        ),
+                                    )
+                                )
+                                document_elem.K.append(link_elem)
+                                annotation_parent_entries.append((link_key, link_elem))
                             except Exception:
                                 pass
                 except Exception:
                     pass
 
-            # Append 'Q' wrapped in /Artifact marked content
+            # Balance the graphics state stack opened at the top of the page.
+            #
+            # One 'q' is pushed before the filtered content; exactly one 'Q'
+            # closes it. Emitting a second 'Q', as this previously did, popped
+            # an empty stack on every page.
             final_ops.append(
                 (
                     [
@@ -219,7 +301,9 @@ def remediate_single_pdf(input_path: str, output_path: str):
             final_ops.append(([], pikepdf.Operator("Q")))
             final_ops.append(([], pikepdf.Operator("EMC")))
 
-            # Check if page is a scanned document (lacks live text operators)
+            # The OCR layer is emitted after the stack is balanced so its text
+            # matrices are interpreted against the identity transform rather
+            # than whatever the page's own content left in place.
             page_text = (plumbpage.extract_text() or "").strip()
             if len(page_text) < 10:
                 print("  - Scanned image page detected! Generating invisible OCR text layer...")
@@ -238,9 +322,6 @@ def remediate_single_pdf(input_path: str, output_path: str):
                 if ocr_ops:
                     final_ops.extend(ocr_ops)
                     page_struct_elems.extend(ocr_elems)
-
-            # Append 'Q' to restore default page coordinates
-            final_ops.append(([], pikepdf.Operator("Q")))
 
             # Write reconstructed stream back to the page contents
             if final_ops:
@@ -287,48 +368,30 @@ def remediate_single_pdf(input_path: str, output_path: str):
         if "/CreationDate" not in pdf.docinfo:
             pdf.docinfo["/CreationDate"] = pdf_date
 
-        # Append XML Metadata stream
+        # Append the XMP metadata stream carrying the PDF/UA identification.
+        #
+        # The namespace URI below is the one ISO 14289-1 clause 5 defines. It is
+        # deliberately not http://www.aiim.org/pdfuaid/ns/id/: the customary
+        # prefix is "pdfuaid" but the URI path segment is "pdfua". Getting this
+        # wrong produces a file that looks correct under casual inspection and
+        # that some checkers still score as compliant, while a conforming
+        # validator cannot identify it as PDF/UA at all.
         xmp_template = f"""<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
-<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.6-c015">
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="ADA PDF Remediator">
  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
   <rdf:Description rdf:about=""
     xmlns:dc="http://purl.org/dc/elements/1.1/"
     xmlns:xmp="http://ns.adobe.com/xap/1.0/"
     xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
-    xmlns:pdfuaid="http://www.aiim.org/pdfuaid/ns/id/"
-    xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/"
-    xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#"
-    xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">
-   
+    xmlns:pdfuaid="{PDFUA_ID_NAMESPACE}">
    <dc:format>application/pdf</dc:format>
-   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">{title}</rdf:li></rdf:Alt></dc:title>
+   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">{_xml_escape(title)}</rdf:li></rdf:Alt></dc:title>
    <dc:creator><rdf:Seq><rdf:li>ADA PDF Remediator</rdf:li></rdf:Seq></dc:creator>
    <xmp:CreateDate>{xmp_date}</xmp:CreateDate>
    <xmp:ModifyDate>{xmp_date}</xmp:ModifyDate>
    <xmp:MetadataDate>{xmp_date}</xmp:MetadataDate>
    <pdf:Producer>ADA PDF Remediator</pdf:Producer>
-   
    <pdfuaid:part>1</pdfuaid:part>
- 
-   <pdfaExtension:schemas>
-    <rdf:Bag>
-     <rdf:li rdf:parseType="Resource">
-      <pdfaSchema:schema>PDF/UA Identification Schema</pdfaSchema:schema>
-      <pdfaSchema:namespaceURI>http://www.aiim.org/pdfuaid/ns/id/</pdfaSchema:namespaceURI>
-      <pdfaSchema:prefix>pdfuaid</pdfaSchema:prefix>
-      <pdfaSchema:property>
-       <rdf:Seq>
-        <rdf:li rdf:parseType="Resource">
-         <pdfaProperty:name>part</pdfaProperty:name>
-         <pdfaProperty:valueType>Integer</pdfaProperty:valueType>
-         <pdfaProperty:category>internal</pdfaProperty:category>
-         <pdfaProperty:description>Part of ISO 14289 standard</pdfaProperty:description>
-        </rdf:li>
-       </rdf:Seq>
-      </pdfaSchema:property>
-     </rdf:li>
-    </rdf:Bag>
-   </pdfaExtension:schemas>
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
@@ -339,16 +402,27 @@ def remediate_single_pdf(input_path: str, output_path: str):
         meta_stream.Subtype = pikepdf.Name("/XML")
         root["/Metadata"] = meta_stream
 
-        # Build ParentTree structure
-        parent_tree_nums = pikepdf.Array()
-        for idx, page_elems in enumerate(all_pages_struct_elems):
-            parent_tree_nums.append(pikepdf.Integer(idx))
-            parent_tree_nums.append(pikepdf.Array(page_elems))
+        # Build the structure parent tree.
+        #
+        # Two kinds of entry share one key space, as ISO 32000-1 14.7.4.4
+        # requires: a page's key maps to an array indexed by marked-content
+        # identifier, while an annotation's key maps directly to the single
+        # element that describes it.
+        parent_entries: list[tuple[int, pikepdf.Object]] = [
+            (idx, pikepdf.Array(page_elems))
+            for idx, page_elems in enumerate(all_pages_struct_elems)
+        ]
+        parent_entries.extend(annotation_parent_entries)
 
-        parent_tree = pdf.make_indirect(pikepdf.Dictionary(Nums=parent_tree_nums))
+        parent_tree = build_number_tree(pdf, parent_entries)
         struct_tree_root = pdf.make_indirect(
             pikepdf.Dictionary(
-                Type=pikepdf.Name("/StructTreeRoot"), K=document_elem, ParentTree=parent_tree
+                Type=pikepdf.Name("/StructTreeRoot"),
+                K=document_elem,
+                ParentTree=parent_tree,
+                # The highest key in use, so a consumer appending to the tree
+                # knows where to continue without rescanning it.
+                ParentTreeNextKey=pikepdf.Integer(next_struct_parent_key),
             )
         )
         document_elem["/P"] = struct_tree_root
