@@ -33,6 +33,16 @@ The en dash became an opening brace. The bullets vanished. The increment operato
 
 That is the failure mode this project is now built to avoid. A document that passes a checker and cannot be read is worse than one that fails honestly, because nobody goes back to look at it.
 
+It was not the only one. Three defects had survived in this codebase, and each survived because something reported success:
+
+| What was wrong | What it reported |
+|---|---|
+| The PDF/UA identifier was written to `.../pdfuaid/ns/id/`. ISO 14289-1 clause 5 defines it as `.../pdfua/ns/id/`, so **no conforming validator could identify any output as PDF/UA**. | The local auditor searched for the same wrong URI and confirmed its own bug. axesCheck gave it 100. Only veraPDF caught it. |
+| The character map fallback replaced text it could not resolve. `Sept 10–11` became `Sept 10{11`; every `∆`, `−` and bullet vanished. | Both checkers passed it. They verify that codes are mapped, not that the mapping means anything. |
+| **No `/Figure` element was ever produced**, despite that being this README's headline feature. Images were tagged as artifacts, so screen readers skipped them entirely. | The interface showed a scorecard asserting full conformance. It was static markup, and the audit result it claimed to summarise was never read. |
+
+[docs/honesty.md](docs/honesty.md) records all three in full, and the design decisions that follow from them.
+
 ## What it does
 
 ```mermaid
