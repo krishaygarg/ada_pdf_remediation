@@ -90,6 +90,17 @@ This is a genuine feature, not busywork. It is the difference between a document
 
 Detection and repair are separate. Every rule can grow an `autofix` the pipeline applies, with a round-trip test proving the fix clears the rule without breaking another. That roughly doubles the rule backlog and is a good way in if you prefer changing documents to inspecting them.
 
+`RemediationStatus` is the vocabulary for the outcome, and it is tracked separately from severity because the two answer different questions. Severity says how bad a finding is. Status says what was done about it, and a report carrying only severity cannot tell a finding nobody tried to fix from one a fix was attempted on and failed.
+
+| Status | Meaning |
+|---|---|
+| `NOT_ATTEMPTED` | The default. No repair exists, or none ran. |
+| `REMEDIATED` | The problem is gone. |
+| `FAILED` | A repair ran and could not clear it. `remediation_detail` is required. |
+| `NEEDS_PERSON` | Automation should not decide this. Not a failure. |
+
+An autofix returns `finding.as_remediated(...)`, `as_failed(...)` or `as_needing_a_person(...)`. A repair that cannot complete must report `FAILED` with a reason rather than returning quietly, because a fix that silently did nothing is how a tool ends up claiming to have repaired a document it did not touch.
+
 ### D. PDF/UA-2 (ISO 14289-2:2024)
 
 An entirely separate profile, not backward compatible with UA-1, adding MathML, new structure types and comprehensive annotation requirements. veraPDF already validates `-f ua2`, so the oracle is ready. The most ambitious lane on the board and completely untouched.
