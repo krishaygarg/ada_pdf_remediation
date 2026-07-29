@@ -125,6 +125,55 @@ SECURITY_HEADERS = {
 }
 
 
+#: Origins allowed to call the API from a browser. The interface is served
+#: from Cloudflare Pages while the API runs elsewhere, so the two are always
+#: cross-origin in the deployed configuration and the browser will not send the
+#: request at all without this.
+#:
+#: An allowlist rather than "*", because a wildcard forecloses ever using
+#: cookies and quietly invites anyone's page to drive the service.
+DEFAULT_ALLOWED_ORIGINS = (
+    "https://ada-pdf-remediator.pages.dev",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+)
+
+#: Comma separated origins to allow in addition, for a fork or a preview
+#: deployment that does not share this project's hostnames.
+ALLOWED_ORIGINS_ENV_VAR = "ADA_ALLOWED_ORIGINS"
+
+
+def allowed_origins() -> tuple[str, ...]:
+    """Origins the API answers cross-origin requests from."""
+    import os
+
+    extra = os.environ.get(ALLOWED_ORIGINS_ENV_VAR, "")
+    configured = tuple(value.strip() for value in extra.split(",") if value.strip())
+    return DEFAULT_ALLOWED_ORIGINS + configured
+
+
+def cors_headers(origin: str | None) -> dict[str, str]:
+    """Headers permitting ``origin``, or nothing when it is not allowed.
+
+    Returning no header rather than a rejection is deliberate: the browser
+    enforces the policy, and echoing back a refusal tells a probing page
+    nothing it could not already infer.
+    """
+    if not origin or origin not in allowed_origins():
+        return {}
+    return {
+        "Access-Control-Allow-Origin": origin,
+        # The response differs by origin, so a cache must key on it. Without
+        # this a shared cache can serve one origin's headers to another.
+        "Vary": "Origin",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "600",
+    }
+
+
 def client_key(remote_addr: str | None, forwarded_for: str | None) -> str:
     """Identify the caller for rate limiting.
 
@@ -141,12 +190,16 @@ def client_key(remote_addr: str | None, forwarded_for: str | None) -> str:
 
 
 __all__ = [
+    "ALLOWED_ORIGINS_ENV_VAR",
+    "DEFAULT_ALLOWED_ORIGINS",
     "MAX_UPLOAD_BYTES",
     "PDF_MAGIC",
     "RISKY_ACTIONS",
     "SECURITY_HEADERS",
     "RateLimiter",
     "UploadVerdict",
+    "allowed_origins",
     "client_key",
+    "cors_headers",
     "validate_upload",
 ]

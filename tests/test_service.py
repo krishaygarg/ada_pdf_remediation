@@ -431,3 +431,70 @@ class TestFullRun:
         response = client.get(f"/api/jobs/{'0' * 32}/events")
         assert response.status_code == 404
         response.close()
+
+
+class TestCrossOriginPolicy:
+    """The interface is served from a different origin than the API.
+
+    Without these headers the browser refuses every call from the deployed
+    site, which is how the rewrite shipped before this was caught.
+    """
+
+    def test_an_allowed_origin_is_permitted(self, client) -> None:
+        response = client.get("/health", headers={"Origin": "https://ada-pdf-remediator.pages.dev"})
+        assert (
+            response.headers["Access-Control-Allow-Origin"]
+            == "https://ada-pdf-remediator.pages.dev"
+        )
+
+    def test_the_response_varies_by_origin(self, client) -> None:
+        """A shared cache must not serve one origin's headers to another."""
+        response = client.get("/health", headers={"Origin": "https://ada-pdf-remediator.pages.dev"})
+        assert "Origin" in response.headers.get("Vary", "")
+
+    def test_an_unknown_origin_gets_no_permission(self, client) -> None:
+        response = client.get("/health", headers={"Origin": "https://evil.example"})
+        assert "Access-Control-Allow-Origin" not in response.headers
+
+    def test_the_policy_is_not_a_wildcard(self, client) -> None:
+        """A wildcard forecloses ever using cookies and invites any page to
+        drive the service."""
+        response = client.get("/health", headers={"Origin": "https://ada-pdf-remediator.pages.dev"})
+        assert response.headers["Access-Control-Allow-Origin"] != "*"
+
+    def test_a_preflight_is_answered_with_the_permitted_methods(self, client) -> None:
+        """Flask answers OPTIONS for every rule; the hook adds the headers."""
+        response = client.options(
+            "/api/jobs", headers={"Origin": "https://ada-pdf-remediator.pages.dev"}
+        )
+        assert response.status_code == 200
+        assert "POST" in response.headers["Access-Control-Allow-Methods"]
+        assert (
+            response.headers["Access-Control-Allow-Origin"]
+            == "https://ada-pdf-remediator.pages.dev"
+        )
+
+    def test_an_extra_origin_can_be_configured(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A fork or preview deployment does not share these hostnames."""
+        monkeypatch.setenv("ADA_ALLOWED_ORIGINS", "https://fork.example")
+        application = create_app(workspace=tmp_path / "svc", workers=1, enable_sweeper=False)
+        response = application.test_client().get(
+            "/health", headers={"Origin": "https://fork.example"}
+        )
+        assert response.headers["Access-Control-Allow-Origin"] == "https://fork.example"
+        application.extensions["remediator"]["runner"].shutdown(wait=True)
+
+    def test_the_interface_origin_matches_what_the_api_allows(self) -> None:
+        """The two are configured in different files and must agree."""
+        import re
+
+        from remediator.service.security import DEFAULT_ALLOWED_ORIGINS
+
+        script = (Path(__file__).resolve().parent.parent / "web" / "app.js").read_text()
+        host = re.search(r"hostname\.endsWith\('([^']+)'\)", script)
+        assert host, "the interface no longer switches origin by hostname"
+        assert any(host.group(1) in origin for origin in DEFAULT_ALLOWED_ORIGINS), (
+            f"the interface is served from *.{host.group(1)} but the API does not allow it"
+        )
