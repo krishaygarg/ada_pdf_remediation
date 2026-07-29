@@ -486,3 +486,16 @@ class TestModel:
 
     def test_human_determination_is_representable(self) -> None:
         assert Determination.HUMAN.value == "human"
+
+
+class TestReportsDoNotLeakServerPaths:
+    def test_sarif_names_the_document_not_its_path(self, remediated: Path) -> None:
+        """A SARIF file is uploaded to GitHub and kept, so an absolute path
+        would publish the layout of whatever machine ran the audit."""
+        import json
+
+        document = json.loads(render(audit_document(remediated), "sarif"))
+        for result in document["runs"][0]["results"]:
+            uri = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+            assert "/" not in uri and "\\" not in uri, f"the SARIF exposes a path: {uri}"
+            assert uri == remediated.name

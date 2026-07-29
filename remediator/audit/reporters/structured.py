@@ -55,6 +55,18 @@ def to_json(report: Report, *, indent: int = 2) -> str:
     return json.dumps(to_dict(report), indent=indent)
 
 
+def _artifact_uri(document: str) -> str:
+    """The document's name, not the path it happened to be processed at.
+
+    A SARIF file is uploaded to GitHub and kept, so an absolute path would
+    publish the layout of whatever machine ran the audit, including scratch
+    directory names and, in a service deployment, the job identifier.
+    """
+    from pathlib import Path
+
+    return Path(document).name or document
+
+
 def to_sarif(report: Report) -> str:
     """Render as SARIF 2.1.0 so findings annotate a pull request diff."""
     catalogue = registered_rules()
@@ -112,7 +124,7 @@ def to_sarif(report: Report) -> str:
             "locations": [
                 {
                     "physicalLocation": {
-                        "artifactLocation": {"uri": report.document},
+                        "artifactLocation": {"uri": _artifact_uri(report.document)},
                         **({"region": region} if region else {}),
                     }
                 }
