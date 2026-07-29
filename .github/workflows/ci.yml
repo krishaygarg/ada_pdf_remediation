@@ -23,8 +23,8 @@ jobs:
     name: Lint and format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -40,8 +40,8 @@ jobs:
     name: Type check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -67,7 +67,7 @@ jobs:
           - os: macos-latest
             python-version: "3.12"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -79,7 +79,7 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install poppler tesseract
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -96,7 +96,7 @@ jobs:
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-xml
           path: coverage.xml
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: junit-${{ matrix.os }}-${{ matrix.python-version }}
           path: junit.xml
@@ -113,20 +113,27 @@ jobs:
   conformance:
     name: PDF/UA conformance (veraPDF)
     runs-on: ubuntu-latest
+    # The last step publishes the audit as SARIF, which writes a code scanning
+    # result and so needs more than the read-only default this workflow sets.
+    # Declared per job rather than at the top so the other jobs, none of which
+    # upload anything, keep the narrower token.
+    permissions:
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -134,7 +141,7 @@ jobs:
 
       - name: Cache veraPDF
         id: verapdf-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/verapdf
           key: verapdf-${{ env.VERAPDF_VERSION }}
@@ -189,9 +196,15 @@ jobs:
           remediate-pdf samples/physics/physics.pdf tmp/audited.pdf
           check-compliance tmp/audited.pdf --format sarif --output tmp/audit.sarif
 
+      # Skipped for pull requests from forks: those run with a read-only token
+      # whatever the job declares, and code scanning does not accept results
+      # from a fork, so attempting the upload only fails a contributor's build
+      # for something they cannot authorise. The audit itself still runs above.
       - name: Publish audit findings
-        if: always() && hashFiles('tmp/audit.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        if: >-
+          always() && hashFiles('tmp/audit.sarif') != ''
+          && github.event.pull_request.head.repo.fork != true
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: tmp/audit.sarif
           category: pdf-ua-audit
@@ -200,15 +213,15 @@ jobs:
     name: Interface accessibility
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -257,7 +270,7 @@ jobs:
 
       - name: Upload the Lighthouse report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lighthouse
           path: lighthouse/
@@ -267,8 +280,8 @@ jobs:
     name: Build distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build sdist and wheel
@@ -284,7 +297,7 @@ jobs:
           /tmp/probe/bin/remediate-pdf --help > /dev/null
           /tmp/probe/bin/check-compliance --help > /dev/null
           echo "console scripts resolve from a clean install"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: distribution
           path: dist/
