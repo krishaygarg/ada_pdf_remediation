@@ -4,9 +4,16 @@ from datetime import datetime, timezone
 import pdfplumber
 import pikepdf
 
+from .alttext import get_provider
 from .content_filter import filter_page_content
+from .figures import DetectedFigure, build_figure_element, describe_figures, detect_vector_figures
 from .font_patcher import recover_font_mapping
 from .numbertree import build_number_tree
+
+#: An image smaller than this fraction of the page is a bullet, a rule or a
+#: spacer. Tagging each as a figure fills the reading order with elements a
+#: reader has to skip, which is its own accessibility problem.
+IMAGE_AREA_THRESHOLD = 0.0009
 
 #: Namespace URI of the PDF/UA identification schema, ISO 14289-1 clause 5.
 #: The conventional prefix is "pdfuaid" but the URI path segment is "pdfua".
@@ -46,10 +53,33 @@ def _xml_escape(value: str) -> str:
     )
 
 
-def remediate_single_pdf(input_path: str, output_path: str):
+def remediate_single_pdf(
+    input_path: str,
+    output_path: str,
+    *,
+    undescribed_images: str = "figure",
+):
+    """Remediate a PDF towards PDF/UA-1 and WCAG conformance.
+
+    Args:
+        input_path: The document to read.
+        output_path: Where to write the result. Must differ from the input.
+        undescribed_images: What to do with an image that no provider could
+            describe. ``"figure"``, the default, tags it as content and leaves
+            the description missing, so the audit reports it and a person can
+            supply one. ``"artifact"`` marks it decorative, which conforms but
+            removes the image from the reading order entirely.
+
+            The default deliberately produces a document that does not yet
+            conform. The alternative was to hide every image behind an artifact
+            tag, which conforms while making the image unreachable, or to write
+            a placeholder such as "Image", which conforms while telling a reader
+            nothing. Both trade a real reader's experience for a passing score.
     """
-    Performs PDF accessibility remediation.
-    """
+    if undescribed_images not in ("figure", "artifact"):
+        raise ValueError(
+            f"undescribed_images must be 'figure' or 'artifact', not {undescribed_images!r}"
+        )
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input PDF not found: {input_path}")
 
@@ -96,6 +126,10 @@ def remediate_single_pdf(input_path: str, output_path: str):
         annotation_parent_entries: list[tuple[int, pikepdf.Object]] = []
         next_struct_parent_key = len(pdf.pages)
 
+        alt_text_provider = get_provider()
+        figures_needing_review = 0
+        vector_regions_found = 0
+
         # Loop through pages
         for page_idx, (pikepage, plumbpage) in enumerate(zip(pdf.pages, plumber.pages)):
             print(
@@ -131,8 +165,13 @@ def remediate_single_pdf(input_path: str, output_path: str):
             final_ops.append(([], pikepdf.Operator("q")))
             final_ops.append(([], pikepdf.Operator("EMC")))
 
+            # Geometry observed while walking the stream, used below to detect
+            # figures without parsing the page a second time.
+            geometry: dict[str, list] = {"images": [], "paths": []}
+            page_text = plumbpage.extract_text() or ""
+
             # Filter page contents (strip paths & strip text inside complex bboxes)
-            generator = filter_page_content(pikepage, complex_bboxes_pdf)
+            generator = filter_page_content(pikepage, complex_bboxes_pdf, collect=geometry)
             if generator:
                 for item_type, data in generator:
                     if item_type == "text":
@@ -215,17 +254,76 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
                     else:  # other
-                        final_ops.append(
-                            (
-                                [
-                                    pikepdf.Name("/Artifact"),
-                                    pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
-                                ],
-                                pikepdf.Operator("BDC"),
+                        # An image drawn here is real content, not decoration.
+                        # Wrapping it as an artifact, which is what this did
+                        # before, hides it from assistive technology entirely
+                        # and is the reason no /Figure element was ever
+                        # produced despite the documented behaviour.
+                        placement = None
+                        if (
+                            str(data[1]) == "Do"
+                            and geometry["images"]
+                            and geometry["images"][-1][0] == str(data[0][0])
+                        ):
+                            candidate = geometry["images"][-1][1]
+                            if candidate.area >= page_width * page_height * IMAGE_AREA_THRESHOLD:
+                                placement = candidate
+
+                        figure = None
+                        alt_text = None
+                        if placement is not None:
+                            figure = DetectedFigure(
+                                bbox=placement, kind="image", xobject_name=str(data[0][0])
                             )
-                        )
-                        final_ops.append(data)
-                        final_ops.append(([], pikepdf.Operator("EMC")))
+                            _, alt_text, needs_review = describe_figures(
+                                [figure],
+                                page_index=page_idx,
+                                page_width=page_width,
+                                page_height=page_height,
+                                page_text=page_text,
+                                provider=alt_text_provider,
+                            )[0]
+                            if needs_review:
+                                figures_needing_review += 1
+                            # Under the artifact policy an image nobody could
+                            # describe is treated as decoration, which conforms
+                            # at the cost of removing it from the reading order.
+                            if alt_text is None and undescribed_images == "artifact":
+                                figure = None
+
+                        if figure is not None:
+                            final_ops.append(
+                                (
+                                    [pikepdf.Name("/Figure"), pikepdf.Dictionary(MCID=mcid)],
+                                    pikepdf.Operator("BDC"),
+                                )
+                            )
+                            final_ops.append(data)
+                            final_ops.append(([], pikepdf.Operator("EMC")))
+
+                            figure_elem = build_figure_element(
+                                pdf,
+                                figure,
+                                parent=document_elem,
+                                page=pikepage.obj,
+                                mcid=mcid,
+                                alt_text=alt_text,
+                            )
+                            document_elem.K.append(figure_elem)
+                            page_struct_elems.append(figure_elem)
+                            mcid += 1
+                        else:
+                            final_ops.append(
+                                (
+                                    [
+                                        pikepdf.Name("/Artifact"),
+                                        pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
+                                    ],
+                                    pikepdf.Operator("BDC"),
+                                )
+                            )
+                            final_ops.append(data)
+                            final_ops.append(([], pikepdf.Operator("EMC")))
 
             # Tag Link annotations for WCAG 1.3.1 and 2.4.4.
             #
@@ -304,8 +402,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
             # The OCR layer is emitted after the stack is balanced so its text
             # matrices are interpreted against the identity transform rather
             # than whatever the page's own content left in place.
-            page_text = (plumbpage.extract_text() or "").strip()
-            if len(page_text) < 10:
+            if len(page_text.strip()) < 10:
                 print("  - Scanned image page detected! Generating invisible OCR text layer...")
                 from .ocr_engine import generate_ocr_text_ops
 
@@ -322,6 +419,27 @@ def remediate_single_pdf(input_path: str, output_path: str):
                 if ocr_ops:
                     final_ops.extend(ocr_ops)
                     page_struct_elems.extend(ocr_elems)
+
+            # Vector artwork is clustered and reported, not restructured.
+            #
+            # Grouping scattered path operations under one /Figure would mean
+            # reordering drawing operations, which changes what the page looks
+            # like because paint order is significant. Reporting the regions
+            # lets a person tag them deliberately, which is the honest option
+            # until a safe grouping strategy exists.
+            if geometry["paths"]:
+                regions = detect_vector_figures(
+                    geometry["paths"],
+                    page_width=page_width,
+                    page_height=page_height,
+                    exclude=[box for _name, box in geometry["images"]],
+                )
+                if regions:
+                    vector_regions_found += len(regions)
+                    print(
+                        f"  - {len(regions)} vector region(s) on this page may be figures; "
+                        "they are kept as artifacts pending review"
+                    )
 
             # Write reconstructed stream back to the page contents
             if final_ops:
@@ -482,6 +600,17 @@ def remediate_single_pdf(input_path: str, output_path: str):
             except Exception as e:
                 print(f"  - {base_font}: recovery failed, leaving the font unchanged ({e})")
                 _ = idx
+
+        if figures_needing_review:
+            print(
+                f"[REMEDIATOR] {figures_needing_review} figure(s) need a human description. "
+                "No placeholder text was invented for them."
+            )
+        if vector_regions_found:
+            print(
+                f"[REMEDIATOR] {vector_regions_found} vector region(s) look like figures "
+                "and are candidates for manual tagging."
+            )
 
         if unresolved_total:
             # Reported rather than papered over. A code mapped to a space looks

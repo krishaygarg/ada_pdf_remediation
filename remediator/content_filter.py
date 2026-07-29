@@ -3,13 +3,63 @@ import pikepdf
 from .utils import get_operator_coords, multiply_matrices, transform_point
 
 
-def filter_page_content(page_obj, complex_bboxes_pdf_space):
+def filter_page_content(page_obj, complex_bboxes_pdf_space, collect=None):
     """
     Parses the page content stream. Dynamically tracks the Coordinate Transformation Matrix (CTM)
     and text matrices. Strips path drawing operations inside complex bboxes, wraps path drawing
     operators outside complex bboxes inside '/Artifact', and filters text content inside complex bboxes.
     Yields blocks of instructions: ('text', ops), ('empty_text', ops), ('artifact', ops), or ('other', op).
+
+    When ``collect`` is a dictionary, geometry observed while walking the stream
+    is recorded into it without altering what is yielded:
+
+    ``collect["images"]``
+        ``(xobject name, Box)`` for every image drawn, in the page's coordinate
+        space. An image XObject is drawn into the unit square, so its placement
+        is exactly the transformation matrix in force at the time.
+    ``collect["paths"]``
+        A ``Box`` bounding each painted path, used to cluster vector artwork
+        into candidate figures.
+
+    Collecting during this walk avoids a second parse of the stream, and the
+    transformation matrix is only available here.
     """
+    from .geometry.boxes import Box
+
+    images_out = collect.setdefault("images", []) if collect is not None else None
+    paths_out = collect.setdefault("paths", []) if collect is not None else None
+
+    def _record_path(points):
+        if paths_out is None or not points:
+            return
+        xs = [x for x, _ in points]
+        ys = [y for _, y in points]
+        paths_out.append(Box(min(xs), min(ys), max(xs), max(ys)))
+
+    def _record_image(name, matrix):
+        if images_out is None:
+            return
+        corners = [
+            transform_point(0.0, 0.0, matrix),
+            transform_point(1.0, 0.0, matrix),
+            transform_point(0.0, 1.0, matrix),
+            transform_point(1.0, 1.0, matrix),
+        ]
+        xs = [x for x, _ in corners]
+        ys = [y for _, y in corners]
+        images_out.append((name, Box(min(xs), min(ys), max(xs), max(ys))))
+
+    def _is_image_xobject(name):
+        try:
+            resources = page_obj.get("/Resources")
+            xobjects = resources.get("/XObject") if resources is not None else None
+            if xobjects is None:
+                return False
+            target = xobjects.get(name)
+            return target is not None and str(target.get("/Subtype", "")) == "/Image"
+        except Exception:
+            return False
+
     try:
         instructions = pikepdf.parse_content_stream(page_obj)
     except Exception:
@@ -137,6 +187,8 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                     if inside_complex:
                         break
 
+            _record_path(coords_pdf)
+
             if not inside_complex:
                 yield "artifact", [op_item for op_item, _ in path_buffer]
 
@@ -162,8 +214,16 @@ def filter_page_content(page_obj, complex_bboxes_pdf_space):
                             break
                     if inside_complex:
                         break
+            _record_path(coords_pdf)
             if not inside_complex:
                 yield "artifact", [op_item for op_item, _ in path_buffer]
             path_buffer = []
+
+        # An image XObject is drawn into the unit square, so the transformation
+        # matrix in force is precisely its placement on the page.
+        if op_name == "Do" and operands:
+            name = str(operands[0])
+            if _is_image_xobject(name):
+                _record_image(name, list(ctm))
 
         yield "other", (operands, operator)

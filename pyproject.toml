@@ -177,7 +177,9 @@ files = [
     "remediator/config.py",
     "remediator/cli",
     "remediator/audit",
+    "remediator/alttext",
     "remediator/fonts",
+    "remediator/geometry",
     "remediator/numbertree.py",
 ]
 
