@@ -14,15 +14,25 @@ worse than an honest gap because it hides the work still to be done.
 
 from __future__ import annotations
 
-from .base import AltTextProvider, AltTextResult, FigureContext
+from .base import (
+    OTHER_MARKER,
+    TARGET_MARKER,
+    AltTextProvider,
+    AltTextResult,
+    FigureContext,
+    PageSpan,
+)
 from .registry import available_providers, get_provider, register_provider
 from .review import NeedsReviewProvider
 
 __all__ = [
+    "OTHER_MARKER",
+    "TARGET_MARKER",
     "AltTextProvider",
     "AltTextResult",
     "FigureContext",
     "NeedsReviewProvider",
+    "PageSpan",
     "available_providers",
     "get_provider",
     "register_provider",
