@@ -162,9 +162,31 @@ class TestLogFieldEscaping:
     """A request path reaches a handler percent-decoded, so it can carry a real
     newline and forge a second log line that reads like a genuine entry."""
 
-    @pytest.mark.parametrize("control", ["\n", "\r", "\r\n", "\x00", "\x1b"])
-    def test_no_control_character_survives(self, control: str) -> None:
-        assert control not in safe_for_log(f"/api/jobs/{control}oops")
+    @pytest.mark.parametrize(
+        "control",
+        [
+            "\n",
+            "\r",
+            "\r\n",
+            "\x00",
+            "\x1b",
+            "\x85",  # NEL, which str.splitlines treats as a break
+            "\u2028",  # LINE SEPARATOR, likewise
+            "\u2029",  # PARAGRAPH SEPARATOR, likewise
+        ],
+    )
+    def test_no_line_breaking_character_survives(self, control: str) -> None:
+        escaped = safe_for_log(f"/api/jobs/{control}oops")
+        assert control not in escaped
+        # splitlines is stricter than a bare newline check: it breaks on NEL and
+        # on the Unicode separators too, so one line out means one line in a log.
+        assert len(escaped.splitlines()) == 1
+
+    def test_an_escape_is_rendered_at_its_natural_width(self) -> None:
+        """A fixed two-digit form would render U+2028 as `\\x2028`, which reads
+        as a space followed by the digits 28."""
+        assert safe_for_log("\u2028") == "\\u2028"
+        assert safe_for_log("\x1b") == "\\x1b"
 
     def test_a_forged_entry_cannot_start_a_new_line(self) -> None:
         forged = "/x\nERROR:root:the disk is on fire"

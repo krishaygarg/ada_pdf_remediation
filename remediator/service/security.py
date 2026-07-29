@@ -39,13 +39,38 @@ def safe_for_log(value: str, limit: int = LOG_FIELD_LIMIT) -> str:
 
     A request path arrives percent-decoded, so ``/%0aINFO:%20ok`` reaches the
     handler containing a real newline and would otherwise write a second line
-    into the log that reads like a genuine entry. Control characters are escaped
-    rather than stripped so that the attempt stays visible in the record.
+    into the log that reads like a genuine entry. Characters are escaped rather
+    than stripped so that the attempt stays visible in the record.
     """
     truncated = value[:limit]
-    escaped = truncated.encode("unicode_escape").decode("ascii")
+
+    # The two line terminators are replaced first and on their own, because they
+    # are the whole mechanism: without a line break there is no forged entry, and
+    # everything after this point is tidiness. Written as explicit replace calls
+    # rather than folded into the loop below because that is the form static
+    # analysis recognises as the barrier for this class of defect, and a
+    # sanitiser a checker cannot see is one that gets removed by a later reader
+    # who cannot see it either.
+    flattened = truncated.replace("\r", "\\r").replace("\n", "\\n")
+
+    escaped = "".join(char if char.isprintable() else _escape(char) for char in flattened)
     suffix = "..." if len(value) > limit else ""
     return f"{escaped}{suffix}"
+
+
+def _escape(char: str) -> str:
+    """Escape one non-printable character at its natural width.
+
+    Width matters for legibility: a fixed two-digit form renders U+2028, which
+    is a line separator and so exactly the kind of character worth seeing, as
+    ``\\x2028``, which reads as a space followed by the digits 28.
+    """
+    code = ord(char)
+    if code <= 0xFF:
+        return f"\\x{code:02x}"
+    if code <= 0xFFFF:
+        return f"\\u{code:04x}"
+    return f"\\U{code:08x}"
 
 
 @dataclass(frozen=True)
