@@ -53,6 +53,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip a condition or checkpoint. Repeatable.",
     )
     parser.add_argument(
+        "--contrast",
+        action="store_true",
+        help=(
+            "Also measure text contrast (Matterhorn checkpoint 04). This renders "
+            "every page, so it is slower than the rest of the audit and is off "
+            "by default."
+        ),
+    )
+    parser.add_argument(
         "--warnings-as-errors",
         action="store_true",
         help="Exit non-zero when the audit reports warnings as well as errors",
@@ -204,7 +213,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     from ..audit import audit_document
     from ..audit.reporters import render
 
-    report = audit_document(args.pdf_path, include=args.only, exclude=args.skip)
+    include = list(args.only) if args.only else None
+    if args.contrast and include is None:
+        from ..audit.registry import EXPENSIVE_CHECKPOINTS, registered_rules
+
+        include = sorted(
+            {condition.split("-", 1)[0] for condition in registered_rules()} | EXPENSIVE_CHECKPOINTS
+        )
+    elif args.contrast:
+        include = [*(include or []), "04"]
+
+    report = audit_document(args.pdf_path, include=include, exclude=args.skip)
 
     if args.quiet and args.format == "text":
         verdict = "conformant" if report.conformant else "not conformant"
