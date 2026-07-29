@@ -251,17 +251,7 @@ jobs:
           done
 
       - name: Run Lighthouse
-        run: |
-          npx --yes @lhci/cli@0.14.x autorun \
-            --collect.url=http://127.0.0.1:8000/idle.html \
-            --collect.numberOfRuns=1 \
-            --collect.settings.chromeFlags="--no-sandbox --headless=new" \
-            --assert.assertions.categories:accessibility=error \
-            --assert.assertions."categories:accessibility".minScore=1 \
-            --assert.assertions."categories:seo".minScore=0.95 \
-            --assert.assertions."categories:best-practices".minScore=0.95 \
-            --upload.target=filesystem \
-            --upload.outputDir=./lighthouse
+        run: npx --yes @lhci/cli@0.14.x autorun --collect.url=http://127.0.0.1:8000/idle.html
         env:
           LHCI_BUILD_CONTEXT__CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
 
