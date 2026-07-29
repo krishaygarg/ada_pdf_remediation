@@ -113,6 +113,13 @@ jobs:
   conformance:
     name: PDF/UA conformance (veraPDF)
     runs-on: ubuntu-latest
+    # The last step publishes the audit as SARIF, which writes a code scanning
+    # result and so needs more than the read-only default this workflow sets.
+    # Declared per job rather than at the top so the other jobs, none of which
+    # upload anything, keep the narrower token.
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -189,8 +196,14 @@ jobs:
           remediate-pdf samples/physics/physics.pdf tmp/audited.pdf
           check-compliance tmp/audited.pdf --format sarif --output tmp/audit.sarif
 
+      # Skipped for pull requests from forks: those run with a read-only token
+      # whatever the job declares, and code scanning does not accept results
+      # from a fork, so attempting the upload only fails a contributor's build
+      # for something they cannot authorise. The audit itself still runs above.
       - name: Publish audit findings
-        if: always() && hashFiles('tmp/audit.sarif') != ''
+        if: >-
+          always() && hashFiles('tmp/audit.sarif') != ''
+          && github.event.pull_request.head.repo.fork != true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: tmp/audit.sarif
