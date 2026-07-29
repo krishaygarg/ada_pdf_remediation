@@ -11,7 +11,15 @@ many conditions are implemented against how many the protocol defines.
 
 from __future__ import annotations
 
-from .model import Determination, Finding, Location, Report, RuleMetadata, Severity
+from .model import (
+    Determination,
+    Finding,
+    Location,
+    RemediationStatus,
+    Report,
+    RuleMetadata,
+    Severity,
+)
 from .registry import audit_document, registered_rules, rule, rule_catalogue
 
 #: Totals published in the Matterhorn Protocol 1.1.
@@ -44,6 +52,7 @@ __all__ = [
     "Determination",
     "Finding",
     "Location",
+    "RemediationStatus",
     "Report",
     "RuleMetadata",
     "Severity",

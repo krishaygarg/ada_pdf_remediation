@@ -9,7 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..audit import RemediationStatus
 from .security import MAX_UPLOAD_BYTES
+
+#: Derived from the enum rather than restated, so a new status cannot be added
+#: to the model while the published description keeps advertising the old set.
+REMEDIATION_STATUSES = tuple(status.value for status in RemediationStatus)
 
 
 def build_spec(version: str) -> dict[str, Any]:
@@ -227,6 +232,17 @@ def build_spec(version: str) -> dict[str, Any]:
                                 "review": {"type": "integer"},
                             },
                         },
+                        "remediation": {
+                            "type": "object",
+                            "description": (
+                                "Findings by repair status. Every status is present, including "
+                                "the zeroes, so an absent key means an older server rather than "
+                                "a count of none."
+                            ),
+                            "properties": {
+                                status: {"type": "integer"} for status in REMEDIATION_STATUSES
+                            },
+                        },
                         "findings": {
                             "type": "array",
                             "items": {"$ref": "#/components/schemas/Finding"},
@@ -244,6 +260,19 @@ def build_spec(version: str) -> dict[str, Any]:
                         "severity": {"type": "string", "enum": ["error", "warning", "review"]},
                         "message": {"type": "string"},
                         "remedy": {"type": ["string", "null"]},
+                        "remediation": {
+                            "type": "string",
+                            "enum": list(REMEDIATION_STATUSES),
+                            "description": (
+                                "What a repair attempt did. Separate from severity: "
+                                "not_attempted and failed are both unfixed, and they call "
+                                "for different next actions."
+                            ),
+                        },
+                        "remediationDetail": {
+                            "type": ["string", "null"],
+                            "description": "Why a repair failed, or what it changed.",
+                        },
                     },
                 },
             }

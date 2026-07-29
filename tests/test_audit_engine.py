@@ -17,6 +17,7 @@ from remediator.audit import (
     Determination,
     Finding,
     Location,
+    RemediationStatus,
     Report,
     Severity,
     audit_document,
@@ -499,3 +500,106 @@ class TestReportsDoNotLeakServerPaths:
             uri = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
             assert "/" not in uri and "\\" not in uri, f"the SARIF exposes a path: {uri}"
             assert uri == remediated.name
+
+
+class TestRemediationStatus:
+    """Severity says how bad a finding is. Repair status says what was done
+    about it. A report carrying only severity cannot distinguish a finding
+    nobody tried to fix from one a fix was attempted on and failed, and those
+    call for opposite next actions."""
+
+    @staticmethod
+    def _finding(**kwargs: object) -> Finding:
+        return Finding(condition="13-004", message="A figure has no alternate text.", **kwargs)  # type: ignore[arg-type]
+
+    def test_a_finding_starts_as_unattempted(self) -> None:
+        """The default has to be honest for the rules that have no repair yet,
+        which is all of them: adding an autofix later must not retroactively
+        reclassify findings already produced."""
+        assert self._finding().remediation is RemediationStatus.NOT_ATTEMPTED
+        assert self._finding().remediation_detail is None
+
+    def test_only_a_remediated_finding_counts_as_resolved(self) -> None:
+        assert RemediationStatus.REMEDIATED.resolved
+        for status in (
+            RemediationStatus.NOT_ATTEMPTED,
+            RemediationStatus.FAILED,
+            RemediationStatus.NEEDS_PERSON,
+        ):
+            assert not status.resolved, status
+            assert status.needs_action, status
+
+    def test_a_failed_repair_is_distinguishable_from_an_untouched_one(self) -> None:
+        untouched = self._finding()
+        failed = self._finding().as_failed("the font program has no glyph names")
+        assert untouched.remediation is not failed.remediation
+        assert failed.remediation_detail == "the font program has no glyph names"
+        assert failed.remediation.needs_action
+
+    def test_marking_a_finding_does_not_mutate_the_original(self) -> None:
+        """Finding is frozen, so the helpers have to return a new one."""
+        original = self._finding()
+        repaired = original.as_remediated("added /Alt from the caption")
+        assert original.remediation is RemediationStatus.NOT_ATTEMPTED
+        assert repaired.remediation is RemediationStatus.REMEDIATED
+        assert repaired.condition == original.condition
+        assert repaired.message == original.message
+
+    def test_a_human_judgement_finding_has_its_own_terminus(self) -> None:
+        """Not FAILED. Nothing went wrong; automation should not decide it."""
+        finding = self._finding().as_needing_a_person("what the chart means")
+        assert finding.remediation is RemediationStatus.NEEDS_PERSON
+        assert finding.remediation.needs_action
+
+    def test_a_report_partitions_findings_by_what_was_done(self) -> None:
+        report = Report(
+            document="d.pdf",
+            findings=[
+                self._finding().as_remediated(),
+                self._finding().as_failed("no glyph names"),
+                self._finding().as_needing_a_person(),
+                self._finding(),
+            ],
+        )
+        assert len(report.remediated) == 1
+        assert len(report.failed_remediations) == 1
+        assert len(report.outstanding) == 3, "everything except the repaired one"
+
+    def test_the_summary_reports_every_status_including_the_zeroes(self) -> None:
+        """A summary that omits `failed` when the count is zero cannot be told
+        apart from one produced before the field existed."""
+        summary = Report(document="d.pdf", findings=[self._finding()]).remediation_summary()
+        assert set(summary) == {status.value for status in RemediationStatus}
+        assert summary["not_attempted"] == 1
+        assert summary["failed"] == 0
+
+    def test_repair_status_does_not_decide_conformance(self) -> None:
+        """Conformance is a property of the document as it stands. A remediated
+        error should no longer be reported as an error at all, so counting it
+        against conformance would mean the status is wrong."""
+        report = Report(
+            document="d.pdf",
+            findings=[self._finding(severity=Severity.ERROR).as_remediated()],
+        )
+        assert not report.conformant, "the error is still present in the findings list"
+
+    def test_the_status_reaches_the_structured_report(self) -> None:
+        report = Report(
+            document="d.pdf",
+            findings=[self._finding().as_failed("the font program has no glyph names")],
+        )
+        payload = to_dict(report)
+        assert payload["remediation"]["failed"] == 1
+        assert payload["findings"][0]["remediation"] == "failed"
+        assert payload["findings"][0]["remediationDetail"] == "the font program has no glyph names"
+
+    def test_the_published_api_description_lists_every_status(self) -> None:
+        """The enum and the OpenAPI document must not drift apart."""
+        from remediator.service.openapi import build_spec
+
+        schemas = build_spec("0.0.0")["components"]["schemas"]
+        advertised = schemas["Finding"]["properties"]["remediation"]["enum"]
+        assert set(advertised) == {status.value for status in RemediationStatus}
+        assert set(schemas["AuditReport"]["properties"]["remediation"]["properties"]) == set(
+            advertised
+        )

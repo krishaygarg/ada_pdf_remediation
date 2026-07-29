@@ -31,6 +31,10 @@ def to_dict(report: Report) -> dict[str, Any]:
             "warnings": len(report.warnings),
             "review": len(report.reviews),
         },
+        # Reported alongside the severity counts rather than folded into them.
+        # A consumer needs to tell "nobody has tried to fix this" from "a fix
+        # was attempted and did not work", and severity answers neither.
+        "remediation": report.remediation_summary(),
         "findings": [
             {
                 "condition": finding.condition,
@@ -45,6 +49,8 @@ def to_dict(report: Report) -> dict[str, Any]:
                     "bbox": list(finding.location.bbox) if finding.location.bbox else None,
                 },
                 "context": finding.context,
+                "remediation": finding.remediation.value,
+                "remediationDetail": finding.remediation_detail,
             }
             for finding in report.findings
         ],
