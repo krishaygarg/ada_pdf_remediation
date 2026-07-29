@@ -4,7 +4,7 @@
 # Builder: resolve and compile wheels once, so the runtime layer needs no
 # compiler toolchain and stays small.
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -27,7 +27,7 @@ RUN pip install --no-deps .
 # ---------------------------------------------------------------------------
 # Runtime
 # ---------------------------------------------------------------------------
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 LABEL org.opencontainers.image.title="ADA PDF Remediator" \
       org.opencontainers.image.description="Automated PDF/UA-1 and WCAG remediation and auditing" \
