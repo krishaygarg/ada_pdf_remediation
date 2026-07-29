@@ -33,8 +33,15 @@ share/python-wheels/
 # Testing & Coverage
 .pytest_cache/
 .coverage
+coverage.xml
+junit.xml
 htmlcov/
 .tox/
+.hypothesis/
+
+# Linting & type checking caches
+.ruff_cache/
+.mypy_cache/
 
 # OS specific files
 .DS_Store

@@ -1,37 +1,183 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ada-pdf-remediator"
-version = "0.1.0"
-description = "Automated PDF accessibility remediation & reading order research platform"
+version = "0.2.0"
+description = "Automated PDF/UA-1 and WCAG remediation with an auditor that reports what is actually wrong"
 readme = "README.md"
-requires-python = ">=3.8"
-authors = [
-    {name = "ADA PDF Remediator Team"}
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ADA PDF Remediator contributors" }]
+keywords = [
+    "pdf",
+    "accessibility",
+    "a11y",
+    "pdf-ua",
+    "wcag",
+    "iso-14289",
+    "matterhorn-protocol",
+    "tagged-pdf",
+    "screen-reader",
+    "section-508",
+    "reading-order",
+    "layout-analysis",
 ]
-keywords = ["pdf", "accessibility", "pdf-ua", "wcag", "reading-order", "layout-analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Adaptive Technologies",
+    "Topic :: Text Processing :: Markup",
+]
 dependencies = [
     "pikepdf>=8.0.0",
     "pdfplumber>=0.10.0",
-    "pdf2image>=1.16.3",
     "PyMuPDF>=1.22.0",
     "pillow>=9.5.0",
     "pdfminer.six>=20221105",
-    "pytesseract>=0.3.10"
+    "fonttools>=4.40.0",
 ]
 
 [project.optional-dependencies]
-experimental = [
-    "ultralytics>=8.0.0",
-    "huggingface-hub>=0.16.0"
+ocr = ["pytesseract>=0.3.10", "pdf2image>=1.16.3"]
+web = ["flask>=2.3.0", "flask-cors>=4.0.0", "gunicorn>=21.2.0"]
+test = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "reportlab>=4.0",
+]
+dev = [
+    "ada-pdf-remediator[ocr,test,web]",
+    "mypy>=1.10",
+    "ruff>=0.6",
+    "pre-commit>=3.7",
 ]
 
+[project.urls]
+Homepage = "https://github.com/krishaygarg/ada_pdf_remediation"
+Repository = "https://github.com/krishaygarg/ada_pdf_remediation"
+Issues = "https://github.com/krishaygarg/ada_pdf_remediation/issues"
+Changelog = "https://github.com/krishaygarg/ada_pdf_remediation/releases"
+
 [project.scripts]
-remediate-pdf = "remediate_pdf:main"
-check-compliance = "check_compliance:main"
+remediate-pdf = "remediator.cli.remediate:main"
+check-compliance = "remediator.cli.compliance:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["remediator*"]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+markers = [
+    "slow: tests that process real documents and take multiple seconds",
+    "requires_tesseract: tests that need the Tesseract binary on PATH",
+    "requires_verapdf: tests that need the veraPDF CLI on PATH",
+]
+
+[tool.coverage.run]
+source = ["remediator"]
+branch = true
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@overload",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["web", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RUF", # ruff specific
+    "PTH", # prefer pathlib
+    "RET", # return consistency
+    "ARG", # unused arguments
+]
+ignore = [
+    "E501", # line length is handled by the formatter
+    "B008", # argparse builders legitimately call functions in defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG001", "ARG002"]
+
+# Modules that later changes in this series rewrite. Enforcing the full rule set
+# on them now would produce a large refactoring diff that buries the actual
+# behavioural fix, so the exemptions are listed explicitly and removed as each
+# module is reworked rather than hidden behind a blanket exclusion.
+"remediator/pipeline.py" = ["ARG001", "PTH", "RET", "SIM", "B", "UP", "RUF", "W293"]
+"remediator/content_filter.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
+"remediator/compliance.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "E712"]
+"remediator/font_patcher.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001"]
+"remediator/ocr_engine.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001", "F841"]
+"remediator/axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
+"remediator/utils.py" = ["RET", "SIM"]
+"app.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
+"mcp_server_axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
+
+# Owned by the research track described in docs/planning/. The function bodies
+# are deliberately left for the people implementing those specifications, so the
+# file is checked for correctness problems only.
+"remediator/reading_order.py" = ["ARG001", "RET", "RUF013"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["remediator"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+# Typing is adopted module by module as each area is reworked, rather than with
+# a repository-wide ignore that would never be revisited. `follow_imports` stays
+# silent so that importing a not-yet-typed module does not report errors from
+# outside the checked set; the file list is what grows over time.
+follow_imports = "silent"
+files = ["remediator/config.py", "remediator/cli"]
+
+[[tool.mypy.overrides]]
+module = [
+    "pikepdf.*",
+    "fitz.*",
+    "pdfplumber.*",
+    "pytesseract.*",
+    "pdf2image.*",
+    "fontTools.*",
+    "reportlab.*",
+]
+ignore_missing_imports = true

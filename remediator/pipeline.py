@@ -1,14 +1,12 @@
 import os
-import io
-import shutil
-import pikepdf
-import pdfplumber
 from datetime import datetime, timezone
 
-from .config import LOCAL_TMP
-from .utils import merge_bboxes
+import pdfplumber
+import pikepdf
+
 from .content_filter import filter_page_content
 from .font_patcher import generate_tounicode_cmap
+
 
 def remediate_single_pdf(input_path: str, output_path: str):
     """
@@ -16,65 +14,75 @@ def remediate_single_pdf(input_path: str, output_path: str):
     """
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input PDF not found: {input_path}")
-        
+
     print(f"[REMEDIATOR] Opening input PDF: {input_path}")
-    
+
     with pikepdf.open(input_path) as pdf, pdfplumber.open(input_path) as plumber:
         # 1. INITIALIZATION & CATALOG SETUP
         root = pdf.Root
-        
+
         # Clear existing structure mappings
         if "/StructTreeRoot" in root:
             del root["/StructTreeRoot"]
         for page in pdf.pages:
             if "/StructParents" in page:
                 del page["/StructParents"]
-                
+
         # Initialize mark info
         if "/MarkInfo" not in root:
             root.MarkInfo = pikepdf.Dictionary(Marked=True)
         else:
             root.MarkInfo.Marked = True
-            
+
         # Create Document structural element
-        document_elem = pdf.make_indirect(pikepdf.Dictionary(
-            Type=pikepdf.Name("/StructElem"),
-            S=pikepdf.Name("/Document"),
-            K=pikepdf.Array()
-        ))
-        
+        document_elem = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name("/StructElem"), S=pikepdf.Name("/Document"), K=pikepdf.Array()
+            )
+        )
+
         all_pages_struct_elems = []
-        
+
         # Loop through pages
         for page_idx, (pikepage, plumbpage) in enumerate(zip(pdf.pages, plumber.pages)):
-            print(f"[REMEDIATOR] Segmenting and reconstructing Page {page_idx + 1}/{len(pdf.pages)}...")
-            
+            print(
+                f"[REMEDIATOR] Segmenting and reconstructing Page {page_idx + 1}/{len(pdf.pages)}..."
+            )
+
             page_width = float(plumbpage.width)
             page_height = float(plumbpage.height)
-            
+
             # Assign page structural index and keyboard tab navigation order (WCAG 2.4.3 & 1.3.1)
             pikepage["/StructParents"] = pikepdf.Integer(page_idx)
             pikepage["/Tabs"] = pikepdf.Name("/S")
-            
+
             # 2. SEGMENTATION & COORDINATE EXTRACTION
             complex_bboxes_pdf = []
-                
+
             # Reconstruct content stream
             final_ops = []
             mcid = 0
             page_struct_elems = []
             first_text_in_page = True
-            
+
             # Prepend 'q' wrapped in /Artifact marked content to isolate coordinates
-            final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
+            final_ops.append(
+                (
+                    [
+                        pikepdf.Name("/Artifact"),
+                        pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
+                    ],
+                    pikepdf.Operator("BDC"),
+                )
+            )
             final_ops.append(([], pikepdf.Operator("q")))
             final_ops.append(([], pikepdf.Operator("EMC")))
-            
+
             # Filter page contents (strip paths & strip text inside complex bboxes)
             generator = filter_page_content(pikepage, complex_bboxes_pdf)
             if generator:
                 for item_type, data in generator:
-                    if item_type == 'text':
+                    if item_type == "text":
                         # Classify text block as /H1, /H2, or /P for WCAG 1.3.1 Info and Relationships
                         tag_name = "/P"
                         text_preview = ""
@@ -82,9 +90,9 @@ def remediate_single_pdf(input_path: str, output_path: str):
                             if len(op_data) == 2:
                                 ops, op = op_data
                                 op_str = str(op)
-                                if op_str == 'Tj':
+                                if op_str == "Tj":
                                     text_preview += str(ops[0])
-                                elif op_str == 'TJ':
+                                elif op_str == "TJ":
                                     for item in ops[0]:
                                         if isinstance(item, pikepdf.String):
                                             text_preview += str(item)
@@ -93,39 +101,79 @@ def remediate_single_pdf(input_path: str, output_path: str):
                         if first_text_in_page and page_idx == 0:
                             tag_name = "/H1"
                             first_text_in_page = False
-                        elif text_preview in ("References", "Abstract", "Introduction", "Conclusion", "Methodology", "Results", "Discussion", "Background"):
+                        elif text_preview in (
+                            "References",
+                            "Abstract",
+                            "Introduction",
+                            "Conclusion",
+                            "Methodology",
+                            "Results",
+                            "Discussion",
+                            "Background",
+                        ):
                             tag_name = "/H2"
 
                         # Wrap text block in /Tag << /MCID mcid >> BDC
-                        final_ops.append(([pikepdf.Name(tag_name), pikepdf.Dictionary(MCID=mcid)], pikepdf.Operator("BDC")))
+                        final_ops.append(
+                            (
+                                [pikepdf.Name(tag_name), pikepdf.Dictionary(MCID=mcid)],
+                                pikepdf.Operator("BDC"),
+                            )
+                        )
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
-                        
+
                         # Create structural element
-                        p_elem = pdf.make_indirect(pikepdf.Dictionary(
-                            Type=pikepdf.Name("/StructElem"),
-                            S=pikepdf.Name(tag_name),
-                            P=document_elem,
-                            Pg=pikepage.obj,
-                            K=pikepdf.Integer(mcid)
-                        ))
+                        p_elem = pdf.make_indirect(
+                            pikepdf.Dictionary(
+                                Type=pikepdf.Name("/StructElem"),
+                                S=pikepdf.Name(tag_name),
+                                P=document_elem,
+                                Pg=pikepage.obj,
+                                K=pikepdf.Integer(mcid),
+                            )
+                        )
                         document_elem.K.append(p_elem)
                         page_struct_elems.append(p_elem)
                         mcid += 1
-                    elif item_type == 'empty_text':
-                        final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
+                    elif item_type == "empty_text":
+                        final_ops.append(
+                            (
+                                [
+                                    pikepdf.Name("/Artifact"),
+                                    pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
+                                ],
+                                pikepdf.Operator("BDC"),
+                            )
+                        )
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
-                    elif item_type == 'artifact':
+                    elif item_type == "artifact":
                         # Wrap path block in /Artifact << /Subtype /Layout >> BDC ... EMC
-                        final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
+                        final_ops.append(
+                            (
+                                [
+                                    pikepdf.Name("/Artifact"),
+                                    pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
+                                ],
+                                pikepdf.Operator("BDC"),
+                            )
+                        )
                         final_ops.extend(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
-                    else: # other
-                        final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
+                    else:  # other
+                        final_ops.append(
+                            (
+                                [
+                                    pikepdf.Name("/Artifact"),
+                                    pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
+                                ],
+                                pikepdf.Operator("BDC"),
+                            )
+                        )
                         final_ops.append(data)
                         final_ops.append(([], pikepdf.Operator("EMC")))
-                        
+
             # Tag Link Annotations on page for WCAG 1.3.1 & WCAG 2.4.4
             if "/Annots" in pikepage:
                 try:
@@ -133,20 +181,24 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     if isinstance(annots, pikepdf.Array):
                         for annot in annots:
                             try:
-                                if hasattr(annot, "get") and annot.get("/Subtype") == pikepdf.Name("/Link"):
+                                if hasattr(annot, "get") and annot.get("/Subtype") == pikepdf.Name(
+                                    "/Link"
+                                ):
                                     annot["/StructParent"] = pikepdf.Integer(page_idx)
-                                    link_elem = pdf.make_indirect(pikepdf.Dictionary(
-                                        Type=pikepdf.Name("/StructElem"),
-                                        S=pikepdf.Name("/Link"),
-                                        P=document_elem,
-                                        Pg=pikepage.obj,
-                                        Alt=pikepdf.String("Hyperlink"),
-                                        K=pikepdf.Dictionary(
-                                            Type=pikepdf.Name("/OBJR"),
-                                            Obj=annot,
-                                            Pg=pikepage.obj
+                                    link_elem = pdf.make_indirect(
+                                        pikepdf.Dictionary(
+                                            Type=pikepdf.Name("/StructElem"),
+                                            S=pikepdf.Name("/Link"),
+                                            P=document_elem,
+                                            Pg=pikepage.obj,
+                                            Alt=pikepdf.String("Hyperlink"),
+                                            K=pikepdf.Dictionary(
+                                                Type=pikepdf.Name("/OBJR"),
+                                                Obj=annot,
+                                                Pg=pikepage.obj,
+                                            ),
                                         )
-                                    ))
+                                    )
                                     document_elem.K.append(link_elem)
                                     page_struct_elems.append(link_elem)
                             except Exception:
@@ -155,17 +207,33 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     pass
 
             # Append 'Q' wrapped in /Artifact marked content
-            final_ops.append(([pikepdf.Name("/Artifact"), pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout"))], pikepdf.Operator("BDC")))
+            final_ops.append(
+                (
+                    [
+                        pikepdf.Name("/Artifact"),
+                        pikepdf.Dictionary(Subtype=pikepdf.Name("/Layout")),
+                    ],
+                    pikepdf.Operator("BDC"),
+                )
+            )
             final_ops.append(([], pikepdf.Operator("Q")))
             final_ops.append(([], pikepdf.Operator("EMC")))
-                        
+
             # Check if page is a scanned document (lacks live text operators)
             page_text = (plumbpage.extract_text() or "").strip()
             if len(page_text) < 10:
-                print(f"  - Scanned image page detected! Generating invisible OCR text layer...")
+                print("  - Scanned image page detected! Generating invisible OCR text layer...")
                 from .ocr_engine import generate_ocr_text_ops
+
                 ocr_ops, ocr_elems, mcid = generate_ocr_text_ops(
-                    input_path, page_idx, page_width, page_height, mcid, pdf, pikepage, document_elem
+                    input_path,
+                    page_idx,
+                    page_width,
+                    page_height,
+                    mcid,
+                    pdf,
+                    pikepage,
+                    document_elem,
                 )
                 if ocr_ops:
                     final_ops.extend(ocr_ops)
@@ -173,19 +241,19 @@ def remediate_single_pdf(input_path: str, output_path: str):
 
             # Append 'Q' to restore default page coordinates
             final_ops.append(([], pikepdf.Operator("Q")))
-            
+
             # Write reconstructed stream back to the page contents
             if final_ops:
                 pikepage.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(final_ops))
             else:
                 pikepage.Contents = pikepdf.Stream(pdf, b"")
-                
+
             all_pages_struct_elems.append(page_struct_elems)
-            
+
         # 5. GLOBAL BRUTE-FORCE METADATA INJECTION
         # Set Reading Language
         root["/Lang"] = pikepdf.String("en-US")
-        
+
         # Display Title in Preferences
         try:
             if "/ViewerPreferences" not in root:
@@ -198,7 +266,7 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     root["/ViewerPreferences"] = pikepdf.Dictionary(DisplayDocTitle=True)
         except Exception:
             root["/ViewerPreferences"] = pikepdf.Dictionary(DisplayDocTitle=True)
-            
+
         # Ensure title exists in Info dict
         title = "Accessible Document"
         try:
@@ -208,17 +276,17 @@ def remediate_single_pdf(input_path: str, output_path: str):
                 pdf.docinfo["/Title"] = title
         except Exception:
             pdf.docinfo["/Title"] = title
-            
+
         pdf.docinfo["/Producer"] = "ADA PDF Remediator"
-        
+
         now = datetime.now(timezone.utc)
         pdf_date = f"D:{now.strftime('%Y%m%d%H%M%S')}+00'00'"
         xmp_date = now.replace(microsecond=0).isoformat()
-        
+
         pdf.docinfo["/ModDate"] = pdf_date
         if "/CreationDate" not in pdf.docinfo:
             pdf.docinfo["/CreationDate"] = pdf_date
-            
+
         # Append XML Metadata stream
         xmp_template = f"""<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.6-c015">
@@ -265,28 +333,28 @@ def remediate_single_pdf(input_path: str, output_path: str):
  </rdf:RDF>
 </x:xmpmeta>
 <?xpacket end="w"?>"""
- 
+
         meta_stream = pikepdf.Stream(pdf, xmp_template.encode("utf-8"))
         meta_stream.Type = pikepdf.Name("/Metadata")
         meta_stream.Subtype = pikepdf.Name("/XML")
         root["/Metadata"] = meta_stream
-        
+
         # Build ParentTree structure
         parent_tree_nums = pikepdf.Array()
         for idx, page_elems in enumerate(all_pages_struct_elems):
             parent_tree_nums.append(pikepdf.Integer(idx))
             parent_tree_nums.append(pikepdf.Array(page_elems))
-            
+
         parent_tree = pdf.make_indirect(pikepdf.Dictionary(Nums=parent_tree_nums))
-        struct_tree_root = pdf.make_indirect(pikepdf.Dictionary(
-            Type=pikepdf.Name("/StructTreeRoot"),
-            K=document_elem,
-            ParentTree=parent_tree
-        ))
+        struct_tree_root = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name("/StructTreeRoot"), K=document_elem, ParentTree=parent_tree
+            )
+        )
         document_elem["/P"] = struct_tree_root
         root["/StructTreeRoot"] = struct_tree_root
-        
-        print(f"[REMEDIATOR] Patching missing font /ToUnicode CMap character mappings...")
+
+        print("[REMEDIATOR] Patching missing font /ToUnicode CMap character mappings...")
         font_objs = []
         try:
             for page in pdf.pages:
@@ -317,11 +385,11 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     obj["/ToUnicode"] = cmap_stream
             except Exception as e:
                 print(f"  - Skipping font {idx} due to error: {e}")
-                        
+
         print(f"[REMEDIATOR] Saving remediated PDF output: {output_path}")
         pdf.save(output_path)
-        
+
     print("[REMEDIATOR] Pipeline completed successfully!")
-    
+
     # Clean up temporary raster images if any remain
     pass

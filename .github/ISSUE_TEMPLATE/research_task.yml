@@ -1,0 +1,66 @@
+name: Research task
+description: A task under one of the specifications in docs/planning/
+title: "[research] "
+labels: [research]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Research tasks track work described in `docs/planning/`. Open one issue
+        per phase so progress is visible and two people do not duplicate effort.
+
+  - type: dropdown
+    id: track
+    attributes:
+      label: Research track
+      options:
+        - Layout and reading order recovery
+        - Technical image alt text generation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: spec
+    attributes:
+      label: Specification
+      placeholder: docs/planning/layout_reading_order_proposal.md
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - Phase 1 - Literature review and setup
+        - Phase 2 - Baseline implementation and analysis
+        - Phase 3 - Core methodology and tuning
+        - Phase 4 - System integration and evaluation
+        - Phase 5 - Paper drafting
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What will exist at the end of this task that does not exist now.
+    validations:
+      required: true
+
+  - type: textarea
+    id: success
+    attributes:
+      label: How success is measured
+      description: >
+        Name the metric and the target. The constraints in the specification
+        (annotation budget, compute footprint, latency) are part of the bar.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Prior work consulted
+      description: Papers, repositories or datasets that inform the approach.

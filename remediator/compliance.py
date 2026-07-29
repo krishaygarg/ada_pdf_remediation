@@ -5,8 +5,9 @@ Validates PDF files against PDF/UA-1 (ISO 14289-1) and WCAG 2.1 accessibility st
 """
 
 import os
-import pikepdf
+
 import fitz
+import pikepdf
 
 
 def check_figure_bbox(element) -> tuple:
@@ -16,10 +17,10 @@ def check_figure_bbox(element) -> tuple:
     Returns (has_alt, has_bbox_in_A, has_bbox_outside_A)
     """
     has_alt = "/Alt" in element and str(element.get("/Alt", "")).strip()
-    
+
     has_bbox_in_A = False
     has_bbox_outside_A = "/BBox" in element
-    
+
     if "/A" in element:
         attrs = element.A
         # Attributes can be a dictionary or an array of dictionaries
@@ -28,7 +29,7 @@ def check_figure_bbox(element) -> tuple:
             attr_list = list(attrs)
         elif isinstance(attrs, pikepdf.Dictionary):
             attr_list = [attrs]
-            
+
         for attr in attr_list:
             if not isinstance(attr, pikepdf.Dictionary):
                 continue
@@ -36,18 +37,18 @@ def check_figure_bbox(element) -> tuple:
             if owner == "/Layout" and "/BBox" in attr:
                 has_bbox_in_A = True
                 break
-                
+
     return has_alt, has_bbox_in_A, has_bbox_outside_A
 
 
 def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
     """
     Runs a complete PDF/UA-1 and WCAG accessibility audit on the given PDF file.
-    
+
     Args:
         pdf_path (str): Path to the PDF file to audit.
         verbose (bool): Whether to print detailed console report.
-        
+
     Returns:
         bool: True if document passes all mandatory compliance checks, False otherwise.
     """
@@ -77,7 +78,9 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
             else:
                 if verbose:
                     print("[\033[91mFAIL\033[0m] Primary document language (/Lang) is missing.")
-                issues_list.append("Failure (1.3 Adaptable): Primary language attribute is missing in document catalog.")
+                issues_list.append(
+                    "Failure (1.3 Adaptable): Primary language attribute is missing in document catalog."
+                )
                 failures += 1
     except Exception as e:
         if verbose:
@@ -93,15 +96,19 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                 prefs = root.ViewerPreferences
                 if "/DisplayDocTitle" in prefs and prefs.DisplayDocTitle == True:
                     has_title_pref = True
-            
+
             if has_title_pref:
                 if verbose:
                     print("[\033[92mPASS\033[0m] Viewer preference DisplayDocTitle is enabled.")
                 passed_checks += 1
             else:
                 if verbose:
-                    print("[\033[91mFAIL\033[0m] DisplayDocTitle viewer preference is missing or disabled.")
-                issues_list.append("Failure (1.3 Adaptable): DisplayDocTitle preference is not set to True.")
+                    print(
+                        "[\033[91mFAIL\033[0m] DisplayDocTitle viewer preference is missing or disabled."
+                    )
+                issues_list.append(
+                    "Failure (1.3 Adaptable): DisplayDocTitle preference is not set to True."
+                )
                 failures += 1
     except Exception as e:
         if verbose:
@@ -117,15 +124,21 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                 meta = root.Metadata.read_bytes().decode("utf-8", errors="ignore")
                 if "pdfuaid:part" in meta and "http://www.aiim.org/pdfuaid/ns/id/" in meta:
                     has_pdfua = True
-            
+
             if has_pdfua:
                 if verbose:
-                    print("[\033[92mPASS\033[0m] PDF/UA-1 schema identifier is present in XMP metadata.")
+                    print(
+                        "[\033[92mPASS\033[0m] PDF/UA-1 schema identifier is present in XMP metadata."
+                    )
                 passed_checks += 1
             else:
                 if verbose:
-                    print("[\033[91mFAIL\033[0m] PDF/UA-1 schema identifier is missing in metadata.")
-                issues_list.append("Failure (4.1 Compatible): PDF/UA-1 identification namespace and part tags are missing or invalid.")
+                    print(
+                        "[\033[91mFAIL\033[0m] PDF/UA-1 schema identifier is missing in metadata."
+                    )
+                issues_list.append(
+                    "Failure (4.1 Compatible): PDF/UA-1 identification namespace and part tags are missing or invalid."
+                )
                 failures += 1
     except Exception as e:
         if verbose:
@@ -142,21 +155,31 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                 struct_root = root.StructTreeRoot
                 if "/ParentTree" in struct_root:
                     has_parent = True
-            
+
             if has_tree and has_parent:
                 if verbose:
-                    print("[\033[92mPASS\033[0m] Structure tag tree and ParentTree are correctly initialized.")
+                    print(
+                        "[\033[92mPASS\033[0m] Structure tag tree and ParentTree are correctly initialized."
+                    )
                 passed_checks += 1
             else:
                 if not has_tree:
                     if verbose:
-                        print("[\033[91mFAIL\033[0m] Document structure tree (/StructTreeRoot) is missing.")
-                    issues_list.append("Failure (1.3 Adaptable): Logical structure tag tree is missing.")
+                        print(
+                            "[\033[91mFAIL\033[0m] Document structure tree (/StructTreeRoot) is missing."
+                        )
+                    issues_list.append(
+                        "Failure (1.3 Adaptable): Logical structure tag tree is missing."
+                    )
                     failures += 1
                 else:
                     if verbose:
-                        print("[\033[91mFAIL\033[0m] Structure tree exists but /ParentTree content mapping is missing.")
-                    issues_list.append("Failure (1.3 Adaptable): ParentTree content coordinates mapping is missing.")
+                        print(
+                            "[\033[91mFAIL\033[0m] Structure tree exists but /ParentTree content mapping is missing."
+                        )
+                    issues_list.append(
+                        "Failure (1.3 Adaptable): ParentTree content coordinates mapping is missing."
+                    )
                     failures += 1
     except Exception as e:
         if verbose:
@@ -168,7 +191,7 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
         with pikepdf.open(pdf_path) as pdf:
             root = pdf.Root
             figures = []
-            
+
             def scan_tree(element):
                 if not isinstance(element, pikepdf.Dictionary):
                     return
@@ -178,7 +201,8 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                 if "/K" in element:
                     kids = element.K
                     if isinstance(kids, pikepdf.Array):
-                        for k in kids: scan_tree(k)
+                        for k in kids:
+                            scan_tree(k)
                     elif isinstance(kids, pikepdf.Dictionary):
                         scan_tree(kids)
 
@@ -187,57 +211,76 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                 if "/K" in struct_root:
                     kids = struct_root.K
                     if isinstance(kids, pikepdf.Array):
-                        for k in kids: scan_tree(k)
+                        for k in kids:
+                            scan_tree(k)
                     elif isinstance(kids, pikepdf.Dictionary):
                         scan_tree(kids)
-            
+
             total_figs = len(figures)
             if total_figs > 0:
                 if verbose:
                     print(f"[INFO] Found {total_figs} Figure tag elements in structure tree.")
-                
+
                 alt_passed = 0
                 bbox_layout_passed = 0
                 bbox_outside_warnings = 0
-                
+
                 for idx, fig in enumerate(figures, 1):
                     has_alt, has_bbox_in_A, has_bbox_outside = check_figure_bbox(fig)
-                    
+
                     if has_alt:
                         alt_passed += 1
                     else:
                         failures += 1
-                        issues_list.append(f"Failure (1.1 Text Alternatives): Figure element {idx} is missing alternative text description.")
-                        
+                        issues_list.append(
+                            f"Failure (1.1 Text Alternatives): Figure element {idx} is missing alternative text description."
+                        )
+
                     if has_bbox_in_A:
                         bbox_layout_passed += 1
                         passed_checks += 1
                     else:
                         failures += 1
-                        issues_list.append(f"Failure (1.3 Adaptable): Figure element {idx} lacks a BBox nested inside an attribute dictionary (/A) owned by /Layout.")
-                    
+                        issues_list.append(
+                            f"Failure (1.3 Adaptable): Figure element {idx} lacks a BBox nested inside an attribute dictionary (/A) owned by /Layout."
+                        )
+
                     if has_bbox_outside:
                         warnings += 1
                         bbox_outside_warnings += 1
-                        issues_list.append(f"Warning (4.1 Compatible): Figure element {idx} contains a BBox key placed directly in structure element instead of nested in /A.")
-                
+                        issues_list.append(
+                            f"Warning (4.1 Compatible): Figure element {idx} contains a BBox key placed directly in structure element instead of nested in /A."
+                        )
+
                 if verbose:
                     if alt_passed == total_figs:
-                        print(f"[\033[92mPASS\033[0m] All {total_figs} figures contain valid Alt text descriptions.")
+                        print(
+                            f"[\033[92mPASS\033[0m] All {total_figs} figures contain valid Alt text descriptions."
+                        )
                         passed_checks += 1
                     else:
-                        print(f"[\033[91mFAIL\033[0m] {total_figs - alt_passed} figures are missing Alt text descriptions.")
-                        
+                        print(
+                            f"[\033[91mFAIL\033[0m] {total_figs - alt_passed} figures are missing Alt text descriptions."
+                        )
+
                     if bbox_layout_passed == total_figs:
-                        print(f"[\033[92mPASS\033[0m] All {total_figs} figures have properly nested BBox Layout attributes in /A.")
+                        print(
+                            f"[\033[92mPASS\033[0m] All {total_figs} figures have properly nested BBox Layout attributes in /A."
+                        )
                     else:
-                        print(f"[\033[91mFAIL\033[0m] {total_figs - bbox_layout_passed} figures lack properly nested BBox Layout attributes in /A.")
-                        
+                        print(
+                            f"[\033[91mFAIL\033[0m] {total_figs - bbox_layout_passed} figures lack properly nested BBox Layout attributes in /A."
+                        )
+
                     if bbox_outside_warnings > 0:
-                        print(f"[\033[93mWARN\033[0m] {bbox_outside_warnings} figures have BBox keys directly in StructElem dictionary instead of nested in /A.")
+                        print(
+                            f"[\033[93mWARN\033[0m] {bbox_outside_warnings} figures have BBox keys directly in StructElem dictionary instead of nested in /A."
+                        )
             else:
                 if verbose:
-                    print("[\033[92mPASS\033[0m] No Figures found in structure tree (automatic pass for Alt and BBox checks).")
+                    print(
+                        "[\033[92mPASS\033[0m] No Figures found in structure tree (automatic pass for Alt and BBox checks)."
+                    )
                 passed_checks += 2
     except Exception as e:
         if verbose:
@@ -249,19 +292,27 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
         with pikepdf.open(pdf_path) as pdf:
             missing_unicode_fonts = []
             for obj in pdf.objects:
-                if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name("/Font"):
+                if isinstance(obj, pikepdf.Dictionary) and obj.get("/Type") == pikepdf.Name(
+                    "/Font"
+                ):
                     base_font = str(obj.get("/BaseFont", "Unknown"))
                     if "/ToUnicode" not in obj:
                         missing_unicode_fonts.append(base_font)
-            
+
             if not missing_unicode_fonts:
                 if verbose:
-                    print("[\033[92mPASS\033[0m] All embedded font objects have valid /ToUnicode mapping streams.")
+                    print(
+                        "[\033[92mPASS\033[0m] All embedded font objects have valid /ToUnicode mapping streams."
+                    )
                 passed_checks += 1
             else:
                 if verbose:
-                    print(f"[\033[91mFAIL\033[0m] Font objects missing /ToUnicode mappings: {list(set(missing_unicode_fonts))}")
-                issues_list.append(f"Failure (4.1 Compatible): Fonts missing /ToUnicode character mapping: {list(set(missing_unicode_fonts))}")
+                    print(
+                        f"[\033[91mFAIL\033[0m] Font objects missing /ToUnicode mappings: {list(set(missing_unicode_fonts))}"
+                    )
+                issues_list.append(
+                    f"Failure (4.1 Compatible): Fonts missing /ToUnicode character mapping: {list(set(missing_unicode_fonts))}"
+                )
                 failures += 1
     except Exception as e:
         if verbose:
@@ -285,15 +336,21 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                 except Exception:
                     pass
         doc.close()
-        
+
         if mcid_count > 0:
             if verbose:
-                print(f"[\033[92mPASS\033[0m] Page content streams contain {mcid_count} marked content ID (MCID) tags.")
+                print(
+                    f"[\033[92mPASS\033[0m] Page content streams contain {mcid_count} marked content ID (MCID) tags."
+                )
             passed_checks += 1
         else:
             if verbose:
-                print("[\033[91mFAIL\033[0m] No marked content (MCID) tags found in page content streams.")
-            issues_list.append("Failure (1.3 Adaptable): Content stream lacks /MCID marked content properties.")
+                print(
+                    "[\033[91mFAIL\033[0m] No marked content (MCID) tags found in page content streams."
+                )
+            issues_list.append(
+                "Failure (1.3 Adaptable): Content stream lacks /MCID marked content properties."
+            )
             failures += 1
     except Exception as e:
         if verbose:
@@ -306,10 +363,16 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
         print(" COMPLIANCE SUMMARY REPORT")
         print("-" * 80)
         print(f"  Passed Checks: {passed_checks}")
-        print(f"  Failures     : {failures}   " + ("\033[91m(Action Required)\033[0m" if failures > 0 else "\033[92m(None)\033[0m"))
-        print(f"  Warnings     : {warnings}   " + ("\033[93m(Action Recommended)\033[0m" if warnings > 0 else "\033[92m(None)\033[0m"))
+        print(
+            f"  Failures     : {failures}   "
+            + ("\033[91m(Action Required)\033[0m" if failures > 0 else "\033[92m(None)\033[0m")
+        )
+        print(
+            f"  Warnings     : {warnings}   "
+            + ("\033[93m(Action Recommended)\033[0m" if warnings > 0 else "\033[92m(None)\033[0m")
+        )
         print("=" * 80)
-        
+
         if failures > 0 or warnings > 0:
             print("\nDetailed Compliance Issues Found:")
             for idx, issue in enumerate(issues_list, 1):
@@ -319,7 +382,9 @@ def run_compliance_check(pdf_path: str, verbose: bool = True) -> bool:
                     print(f"  {idx}. \033[93m[WARN]\033[0m {issue}")
             print("=" * 80 + "\n")
         else:
-            print("\033[92mSUCCESS: Document is 100% compliant with PDF/UA-1 and WCAG accessibility standards!\033[0m")
+            print(
+                "\033[92mSUCCESS: Document is 100% compliant with PDF/UA-1 and WCAG accessibility standards!\033[0m"
+            )
             print("=" * 80 + "\n")
 
     return failures == 0

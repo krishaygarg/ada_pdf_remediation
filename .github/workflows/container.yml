@@ -1,0 +1,91 @@
+name: Container
+
+# Third-party actions are pinned to a commit hash rather than a tag. A tag can
+# be moved to point at different code after review, so pinning is the only way
+# a workflow with repository write access can be relied on to keep running what
+# was actually reviewed. The version follows in a comment so the intent stays
+# readable, and Dependabot updates both together.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - Dockerfile
+      - requirements.txt
+      - pyproject.toml
+      - .github/workflows/container.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, scan and describe the image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Buildx pulls its builder image from Docker Hub, which returns a 502
+      # often enough to fail a run for reasons unrelated to the change. One
+      # retry turns that from a red build into a slower green one.
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.11.1
+        id: buildx
+        continue-on-error: true
+
+      - name: Retry the builder setup
+        if: steps.buildx.outcome == 'failure'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.11.1
+
+      - name: Build image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.18.0
+        with:
+          context: .
+          load: true
+          tags: ada-pdf-remediator:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+
+      - name: Smoke test the image
+        run: |
+          docker run --rm ada-pdf-remediator:ci remediate-pdf --help > /dev/null
+          docker run --rm ada-pdf-remediator:ci check-compliance --help > /dev/null
+          echo "image entry points work"
+
+      - name: Confirm the container does not run as root
+        run: |
+          user_id=$(docker run --rm ada-pdf-remediator:ci id -u)
+          if [ "$user_id" = "0" ]; then
+            echo "container runs as root"
+            exit 1
+          fi
+          echo "container runs as uid $user_id"
+
+      - name: Scan for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ada-pdf-remediator:ci
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Publish scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-container
+
+      - name: Generate a software bill of materials
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.20.9
+        with:
+          image: ada-pdf-remediator:ci
+          format: spdx-json
+          artifact-name: sbom.spdx.json

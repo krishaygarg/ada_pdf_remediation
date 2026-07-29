@@ -1,0 +1,70 @@
+name: Bug report
+description: Something produces a wrong or unexpected result
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If the bug concerns a produced PDF, the most
+        useful thing you can attach is the smallest document that reproduces it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact command and the observed output.
+      placeholder: |
+        $ remediate-pdf input.pdf output.pdf
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Remediation pipeline
+        - Conformance auditing
+        - Fonts and character mapping
+        - OCR
+        - Web interface or API
+        - Packaging, CI or docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: validator
+    attributes:
+      label: Validator output
+      description: >
+        If a conformance checker is involved, paste its verdict. veraPDF is
+        preferred: `verapdf -f ua1 --format text output.pdf`.
+      render: shell
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `python -VV`, the package version, and your operating system.
+      render: shell
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Checks
+      options:
+        - label: I can reproduce this on the current `main`
+          required: true
+        - label: I searched existing issues for a duplicate
+          required: true

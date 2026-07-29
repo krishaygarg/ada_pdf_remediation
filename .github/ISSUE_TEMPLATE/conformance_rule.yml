@@ -1,0 +1,72 @@
+name: Conformance rule
+description: Implement or refine a PDF/UA or WCAG conformance check
+title: "[rule] "
+labels: [conformance, good first issue]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for work on the conformance auditor. One rule per issue keeps
+        review small and lets several people work in parallel.
+
+        The Matterhorn Protocol defines 31 checkpoints and 136 failure
+        conditions: 87 are determinable by software, 47 need human judgement,
+        and 2 have no defined test.
+
+  - type: input
+    id: checkpoint
+    attributes:
+      label: Matterhorn failure condition
+      description: Identifier in `checkpoint-condition` form.
+      placeholder: "15-003"
+    validations:
+      required: true
+
+  - type: input
+    id: clause
+    attributes:
+      label: ISO 14289-1 clause
+      placeholder: "7.5"
+
+  - type: input
+    id: wcag
+    attributes:
+      label: Related WCAG success criterion
+      placeholder: "1.3.1 Info and Relationships"
+
+  - type: dropdown
+    id: determination
+    attributes:
+      label: How is it determined
+      options:
+        - Software determinable
+        - Requires human judgement
+    validations:
+      required: true
+
+  - type: textarea
+    id: condition
+    attributes:
+      label: Failure condition
+      description: Quote the condition text from the Matterhorn Protocol.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Fixture plan
+      description: >
+        Describe the document that should fail this rule and the one that should
+        pass it. Fixtures are generated in code under `tests/`, not committed as
+        binaries.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: Detection (report the failure)
+        - label: Remediation (fix it automatically in the pipeline)
