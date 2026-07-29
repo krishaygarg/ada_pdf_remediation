@@ -45,6 +45,7 @@ dependencies = [
     "pillow>=9.5.0",
     "pdfminer.six>=20221105",
     "fonttools>=4.40.0",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +56,11 @@ test = [
     "pytest-cov>=5.0",
     "hypothesis>=6.100",
     "reportlab>=4.0",
+    "coloraide>=4.0",
+    # tomllib is standard from 3.11. Without the backport the packaging tests
+    # would silently skip on 3.10, which is the version most likely to have a
+    # packaging problem in the first place.
+    "tomli>=2.0; python_version < '3.11'",
 ]
 dev = [
     "ada-pdf-remediator[ocr,test,web]",
@@ -72,6 +78,7 @@ Changelog = "https://github.com/krishaygarg/ada_pdf_remediation/releases"
 [project.scripts]
 remediate-pdf = "remediator.cli.remediate:main"
 check-compliance = "remediator.cli.compliance:main"
+ada-ro-bench = "remediator.roeval.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -131,7 +138,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG001", "ARG002"]
+"tests/*" = ["ARG001", "ARG002", "ARG005"]
+
+# These modules exist to handle characters that look like other characters.
+# The ambiguous-character rules would forbid writing the very cases under test,
+# such as distinguishing an en dash from a hyphen or a minus sign from both.
+"remediator/fonts/glyphnames.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_fonts.py" = ["ARG001", "ARG002", "RUF001", "RUF002", "RUF003"]
 
 # Modules that later changes in this series rewrite. Enforcing the full rule set
 # on them now would produce a large refactoring diff that buries the actual
@@ -139,12 +152,10 @@ ignore = [
 # module is reworked rather than hidden behind a blanket exclusion.
 "remediator/pipeline.py" = ["ARG001", "PTH", "RET", "SIM", "B", "UP", "RUF", "W293"]
 "remediator/content_filter.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
-"remediator/compliance.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "E712"]
 "remediator/font_patcher.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001"]
 "remediator/ocr_engine.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF", "ARG001", "F841"]
 "remediator/axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
 "remediator/utils.py" = ["RET", "SIM"]
-"app.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
 "mcp_server_axescheck.py" = ["PTH", "RET", "SIM", "B", "UP", "RUF"]
 
 # Owned by the research track described in docs/planning/. The function bodies
@@ -168,7 +179,33 @@ check_untyped_defs = true
 # silent so that importing a not-yet-typed module does not report errors from
 # outside the checked set; the file list is what grows over time.
 follow_imports = "silent"
-files = ["remediator/config.py", "remediator/cli"]
+files = [
+    "remediator/config.py",
+    "remediator/cli",
+    "remediator/audit",
+    "remediator/contrast",
+    "remediator/progress.py",
+    "remediator/service",
+    "remediator/alttext",
+    "remediator/fonts",
+    "remediator/geometry",
+    "remediator/roeval",
+    "remediator/numbertree.py",
+]
+
+# numpy ships stubs that use PEP 695 `type` statements. mypy can only parse
+# those when targeting 3.12 or later, and this project supports 3.10, so the
+# stubs are skipped rather than raising the target everywhere to accommodate
+# one dependency whose own types this project does not rely on.
+#
+# follow_imports_for_stubs is the part that matters: follow_imports on its own
+# does not apply to .pyi files, so skipping without it leaves mypy parsing the
+# stub and failing on syntax it cannot read.
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
