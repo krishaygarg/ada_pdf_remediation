@@ -11,10 +11,12 @@ from .figures import (
     DetectedFigure,
     build_figure_element,
     describe_figures,
+    detect_image_figures,
     detect_vector_figures,
     is_meaningful_image,
 )
 from .font_patcher import recover_font_mapping
+from .geometry.boxes import Box
 from .numbertree import build_number_tree
 from .progress import ConsoleReporter, ProgressReporter, Stage, emit
 
@@ -120,6 +122,72 @@ def _xml_escape(value: str) -> str:
     return (
         value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
     )
+
+
+def _to_reading_space(box: Box, page_height: float) -> Box:
+    """Convert a content-stream box into the top-down space pdfplumber reports.
+
+    Two coordinate systems meet here. The content stream walk yields PDF user
+    space, whose origin is the bottom-left corner, so a box near the top of the
+    page carries large y values. pdfplumber's ``images`` and
+    ``extract_text_lines`` report top-down, measuring down from the top edge.
+
+    They have to be reconciled before a figure can be located among the page's
+    text, and the failure is silent if they are not: the boxes never compare
+    equal, every figure fails to find itself, and the page context each one
+    receives describes some other figure.
+    """
+    return Box(
+        x0=box.x0,
+        top=page_height - box.bottom,
+        x1=box.x1,
+        bottom=page_height - box.top,
+    )
+
+
+def _page_text_lines(plumbpage):
+    """Page text as ``(text, top)`` pairs, for locating figures within it.
+
+    Returns an empty list when the page has no extractable text, which a
+    provider must read as "no positions known" rather than "an empty page".
+    """
+    try:
+        lines = plumbpage.extract_text_lines()
+    except Exception:
+        # pdfplumber raises on a handful of malformed pages. Losing the position
+        # of a caption degrades a description; it must not fail a remediation.
+        return []
+    return [
+        (line["text"], float(line["top"]))
+        for line in lines
+        if line.get("text") and line.get("top") is not None
+    ]
+
+
+def _page_image_figures(plumbpage, *, page_width: float, page_height: float):
+    """Every image region on the page that is large enough to be a figure.
+
+    Read from pdfplumber directly rather than from the content stream walk,
+    because the walk has not reached the later images at the moment an earlier
+    one is described.
+    """
+    try:
+        images = plumbpage.images
+    except Exception:
+        return []
+    placements = []
+    for index, image in enumerate(images):
+        try:
+            box = Box(
+                x0=float(image["x0"]),
+                top=float(image["top"]),
+                x1=float(image["x1"]),
+                bottom=float(image["bottom"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+        placements.append((image.get("name") or f"image{index}", box))
+    return detect_image_figures(placements, page_width=page_width, page_height=page_height)
 
 
 def remediate_single_pdf(
@@ -261,6 +329,16 @@ def remediate_single_pdf(
             # pages already written.
             first_kid_index = len(document_elem.K)
             page_text = plumbpage.extract_text() or ""
+            # Positioned lines and every image region on the page, gathered
+            # before the stream walk rather than during it. A figure is
+            # described as the walk reaches it, so at that moment the images
+            # further down the page are not in `geometry` yet, and a provider
+            # asking "which figure am I looking at" would be told it is the
+            # only one. Both are cheap here and neither needs the walk.
+            text_lines = _page_text_lines(plumbpage)
+            page_figures = _page_image_figures(
+                plumbpage, page_width=page_width, page_height=page_height
+            )
 
             # Filter page contents (strip paths & strip text inside complex bboxes)
             generator = filter_page_content(pikepage, complex_bboxes_pdf, collect=geometry)
@@ -369,12 +447,24 @@ def remediate_single_pdf(
                             figure = DetectedFigure(
                                 bbox=placement, kind="image", xobject_name=str(data[0][0])
                             )
+                            # Described in reading space so the figure can be
+                            # located among the page's text. The returned figure
+                            # is discarded; `figure` below stays in user space,
+                            # which is what /BBox has to be written in.
                             _, alt_text, needs_review = describe_figures(
-                                [figure],
+                                [
+                                    DetectedFigure(
+                                        bbox=_to_reading_space(placement, page_height),
+                                        kind=figure.kind,
+                                        xobject_name=figure.xobject_name,
+                                    )
+                                ],
                                 page_index=page_idx,
                                 page_width=page_width,
                                 page_height=page_height,
                                 page_text=page_text,
+                                text_lines=text_lines,
+                                page_figures=page_figures,
                                 provider=alt_text_provider,
                             )[0]
                             if needs_review:
