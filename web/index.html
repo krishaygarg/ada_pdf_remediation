@@ -1,200 +1,288 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADA PDF Remediator & Compliance Suite</title>
-    <meta name="description" content="Automated PDF/UA-1 & WCAG 2.1 accessibility remediation engine and compliance audit platform.">
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="app-background">
-        <div class="glow-orb orb-1"></div>
-        <div class="glow-orb orb-2"></div>
-    </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
 
-    <div class="app-container">
-        <!-- Header Nav -->
-        <header class="app-header">
-            <div class="brand">
-                <div class="brand-logo">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <path d="m9 15 2 2 4-4"></path>
-                    </svg>
-                </div>
-                <div class="brand-text">
-                    <h1>ADA PDF Remediator</h1>
-                    <span class="badge">PDF/UA-1 & WCAG 2.1 Engine</span>
-                </div>
-            </div>
-            <nav class="nav-links">
-                <a href="#uploader" class="nav-link active">Remediate</a>
-                <a href="#audit" class="nav-link">Compliance Rules</a>
-                <a href="https://github.com/krishaygarg/ada_pdf_remediation" target="_blank" class="github-link">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-                    </svg>
-                    <span>Repository</span>
-                </a>
-            </nav>
-        </header>
+    <title>ADA PDF Remediator — tag PDFs for screen readers and audit the result</title>
+    <meta
+      name="description"
+      content="Upload a PDF and get back a tagged document plus an honest conformance report: every finding is tied to a Matterhorn Protocol failure condition and an ISO 14289-1 clause."
+    />
+    <link rel="canonical" href="https://ada-pdf-remediator.pages.dev/" />
 
-        <!-- Hero & Uploader Section -->
-        <main class="main-content">
-            <section id="uploader" class="hero-section">
-                <div class="hero-text">
-                    <h2>Automated PDF Accessibility Engine</h2>
-                    <p>Transform un-accessible PDF documents into fully tagged, screen-reader compliant PDFs with automated figure flattening, structural tag tree creation, and font character map repair.</p>
-                </div>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ADA PDF Remediator" />
+    <meta property="og:title" content="ADA PDF Remediator" />
+    <meta
+      property="og:description"
+      content="Tag PDFs for screen readers and audit the result against PDF/UA-1. Open source, MIT licensed."
+    />
+    <meta property="og:url" content="https://ada-pdf-remediator.pages.dev/" />
+    <meta property="og:image" content="https://ada-pdf-remediator.pages.dev/social-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="ADA PDF Remediator: tag PDFs for screen readers, then audit the result."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
 
-                <!-- Dropzone Card -->
-                <div class="card upload-card" id="dropzone">
-                    <input type="file" id="file-input" accept="application/pdf" hidden>
-                    
-                    <div class="upload-state" id="upload-idle">
-                        <div class="upload-icon-wrapper">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                        </div>
-                        <h3>Drag & drop your PDF file here</h3>
-                        <p>Supports academic papers, reports, and complex layout PDFs (Max 50MB)</p>
-                        <button class="btn btn-primary" id="browse-btn">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                            Select PDF File
-                        </button>
-                    </div>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "name": "ADA PDF Remediator",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Any",
+            "description": "Tags PDF documents for screen readers and audits the result against PDF/UA-1 (ISO 14289-1) using the Matterhorn Protocol failure conditions.",
+            "url": "https://ada-pdf-remediator.pages.dev/",
+            "license": "https://opensource.org/licenses/MIT",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "codeRepository": "https://github.com/krishaygarg/ada_pdf_remediation"
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Does a passing report mean the document is accessible?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. The Matterhorn Protocol defines 136 failure conditions for PDF/UA-1, and only 87 can be determined by software. A clean report means nothing automatable is wrong. Reading order, heading structure and whether a description is actually useful still need a person."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What happens to the document I upload?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "It is processed on the server and deleted, along with the result, one hour later. Nothing is sent to any third party."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why does my document fail after being remediated?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Usually because it contains images nobody has described, or fonts with no embedded program. Neither can be invented from the file alone, so they are reported rather than papered over."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
 
-                    <!-- Processing State -->
-                    <div class="upload-state hidden" id="upload-processing">
-                        <div class="spinner-container">
-                            <div class="spinner"></div>
-                        </div>
-                        <h3 id="status-headline">Processing Document...</h3>
-                        <p id="file-name-label">filename.pdf</p>
-                        
-                        <!-- Progress Stepper -->
-                        <div class="stepper">
-                            <div class="step step-active" id="step-1">
-                                <span class="step-dot"></span>
-                                <span class="step-text">Rasterizing Pages</span>
-                            </div>
-                            <div class="step" id="step-2">
-                                <span class="step-dot"></span>
-                                <span class="step-text">Segmenting & Flattening</span>
-                            </div>
-                            <div class="step" id="step-3">
-                                <span class="step-dot"></span>
-                                <span class="step-text">Building Tag Tree</span>
-                            </div>
-                            <div class="step" id="step-4">
-                                <span class="step-dot"></span>
-                                <span class="step-text">Patching Font CMaps</span>
-                            </div>
-                        </div>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-                        <div class="terminal-box" id="terminal-logs">
-                            <div class="log-line">[REMEDIATOR] Starting pipeline...</div>
-                        </div>
-                    </div>
+    <header class="masthead">
+      <div class="shell masthead__inner">
+        <a class="wordmark" href="/">
+          <svg class="wordmark__mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M6 2.75h8.5L19 7.25v14H6z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linejoin="round"
+            />
+            <path d="M14 2.75v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+            <path
+              d="m9 14.5 2.25 2.25L16 12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="wordmark__text">ADA PDF Remediator</span>
+        </a>
+        <nav class="masthead__nav" aria-label="Primary">
+          <a href="#how">How it works</a>
+          <a href="#limits">Limits</a>
+          <a
+            href="https://github.com/krishaygarg/ada_pdf_remediation"
+            rel="noopener"
+            class="masthead__repo"
+            >Source</a
+          >
+        </nav>
+      </div>
+    </header>
 
-                    <!-- Result Completed State -->
-                    <div class="upload-state hidden" id="upload-success">
-                        <div class="success-icon">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                        </div>
-                        <h3>Remediation Completed!</h3>
-                        <p id="success-filename">Your accessible PDF is ready for download.</p>
-                        
-                        <div class="result-actions">
-                            <button class="btn btn-success" id="download-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                Download Remediated PDF
-                            </button>
-                            <button class="btn btn-secondary" id="reset-btn">Remediate Another PDF</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+    <main id="main" class="shell">
+      <div class="lede">
+        <h1>Most PDFs are unreadable to a screen reader. This fixes what it can, and tells you what it cannot.</h1>
+        <p>
+          Drop in a document. You get back a tagged PDF and a report where every finding names the
+          Matterhorn Protocol failure condition and ISO clause behind it. Nothing is invented to
+          make the score look better.
+        </p>
+      </div>
 
-            <!-- Compliance Report Section -->
-            <section id="audit" class="audit-section hidden">
-                <div class="section-header">
-                    <h2>Accessibility Compliance Scorecard</h2>
-                    <span class="compliance-badge pass" id="audit-badge">100% COMPLIANT</span>
-                </div>
+      <!-- Upload -->
+      <section class="panel" aria-labelledby="upload-heading">
+        <h2 id="upload-heading" class="visually-hidden">Upload a document</h2>
 
-                <div class="audit-grid">
-                    <div class="audit-card">
-                        <div class="audit-header">
-                            <span class="check-icon pass">✓</span>
-                            <h4>Document Catalog & Language</h4>
-                        </div>
-                        <p id="check-lang">Primary document language catalog (/Lang) set to <code>en-US</code>.</p>
-                    </div>
+        <div class="dropzone" id="dropzone" data-state="idle">
+          <form id="upload-form" class="dropzone__idle">
+            <label class="field">
+              <span class="field__label">PDF document</span>
+              <input
+                type="file"
+                id="file-input"
+                name="pdf"
+                accept="application/pdf,.pdf"
+                class="field__file"
+                aria-describedby="file-help"
+              />
+            </label>
+            <p id="file-help" class="field__help">
+              Up to 50 MB. Drag a file anywhere onto this panel, or use the button above.
+            </p>
 
-                    <div class="audit-card">
-                        <div class="audit-header">
-                            <span class="check-icon pass">✓</span>
-                            <h4>Viewer Title Preference</h4>
-                        </div>
-                        <p id="check-title">ViewerPreference <code>DisplayDocTitle</code> enabled for accessibility tools.</p>
-                    </div>
+            <fieldset class="choice">
+              <legend class="choice__legend">Images nobody has described</legend>
+              <label class="choice__option">
+                <input type="radio" name="undescribedImages" value="figure" checked />
+                <span>
+                  <strong>Tag them as figures</strong>
+                  <small
+                    >The document will not conform until someone writes descriptions. The gaps are
+                    listed in the report.</small
+                  >
+                </span>
+              </label>
+              <label class="choice__option">
+                <input type="radio" name="undescribedImages" value="artifact" />
+                <span>
+                  <strong>Mark them decorative</strong>
+                  <small
+                    >The document conforms, but screen readers skip the images entirely. Only
+                    correct if they carry no meaning.</small
+                  >
+                </span>
+              </label>
+            </fieldset>
 
-                    <div class="audit-card">
-                        <div class="audit-header">
-                            <span class="check-icon pass">✓</span>
-                            <h4>PDF/UA-1 XMP Metadata</h4>
-                        </div>
-                        <p id="check-xmp">ISO 14289-1 identification namespace and part schema injected into XMP.</p>
-                    </div>
+            <button type="submit" class="button button--primary" id="submit-button" disabled>
+              Remediate this document
+            </button>
+          </form>
 
-                    <div class="audit-card">
-                        <div class="audit-header">
-                            <span class="check-icon pass">✓</span>
-                            <h4>Logical Structure Tree</h4>
-                        </div>
-                        <p id="check-tree">Tag tree catalog (/StructTreeRoot) and /ParentTree initialized with /MCID coordinates.</p>
-                    </div>
+          <div class="dropzone__overlay" aria-hidden="true"><span>Release to upload</span></div>
+        </div>
 
-                    <div class="audit-card">
-                        <div class="audit-header">
-                            <span class="check-icon pass">✓</span>
-                            <h4>Figure BBox & Alt Text</h4>
-                        </div>
-                        <p id="check-figs">All complex flattened figures contain valid Alt descriptions and /Layout BBox arrays.</p>
-                    </div>
+        <!-- Progress -->
+        <div class="run" id="run" hidden>
+          <div class="run__head">
+            <h3 class="run__title" id="run-title">Working on <span id="run-filename"></span></h3>
+            <button type="button" class="button button--quiet" id="cancel-button">
+              Start over
+            </button>
+          </div>
 
-                    <div class="audit-card">
-                        <div class="audit-header">
-                            <span class="check-icon pass">✓</span>
-                            <h4>Font /ToUnicode Mappings</h4>
-                        </div>
-                        <p id="check-fonts">All embedded fonts contain valid /ToUnicode CMap streams for screen reader character reading.</p>
-                    </div>
-                </div>
-            </section>
-        </main>
+          <ol class="stages" id="stages" aria-hidden="true"></ol>
 
-        <!-- Footer -->
-        <footer class="app-footer">
-            <p>ADA PDF Remediator Suite • PDF/UA-1 (ISO 14289-1) & WCAG 2.1 Accessible</p>
-        </footer>
-    </div>
+          <p class="run__status" id="run-status" role="status" aria-live="polite">
+            Uploading the document.
+          </p>
 
-    <script src="app.js"></script>
-</body>
+          <div class="log" id="log" role="log" aria-label="Progress detail" tabindex="0"></div>
+        </div>
+
+        <!-- Failure -->
+        <div class="notice notice--error" id="error-box" hidden>
+          <h3 class="notice__title" id="error-title">Something went wrong</h3>
+          <p id="error-message"></p>
+          <button type="button" class="button button--quiet" id="error-retry">Try again</button>
+        </div>
+      </section>
+
+      <!-- Report -->
+      <section class="panel report" id="report" aria-labelledby="report-heading" hidden>
+        <div class="report__head">
+          <div>
+            <h2 id="report-heading" tabindex="-1">Conformance report</h2>
+            <p class="report__verdict" id="report-verdict"></p>
+          </div>
+          <a class="button button--primary" id="download-link" href="#" download>
+            Download tagged PDF
+          </a>
+        </div>
+
+        <dl class="tally" id="tally"></dl>
+
+        <div class="findings" id="findings"></div>
+
+        <div class="notice notice--info" id="human-note">
+          <h3 class="notice__title">What this report cannot tell you</h3>
+          <p>
+            The Matterhorn Protocol defines 136 failure conditions for PDF/UA-1. Only 87 can be
+            determined by software, and this tool implements a subset of those. A clean report means
+            nothing automatable is wrong with the file. Whether the reading order makes sense,
+            whether headings describe their sections, and whether a description actually conveys
+            what a figure shows are all still yours to check.
+          </p>
+        </div>
+      </section>
+
+      <!-- Explanation -->
+      <section class="prose" id="how" aria-labelledby="how-heading">
+        <h2 id="how-heading">How it works</h2>
+        <p>
+          A screen reader does not read a page the way you see it. It follows a tag tree stored in
+          the file, and most PDFs do not have one. The text is there, but it arrives in whatever
+          order the producer happened to write it, with no indication of what is a heading, what is
+          a caption, and what is decoration.
+        </p>
+        <p>
+          This rebuilds that structure: it marks real content, tags images as figures with their
+          bounding boxes, recovers the mapping from character codes to actual text out of the
+          embedded font programs, and writes the PDF/UA identification into the document metadata.
+          Then it audits its own output and reports what is left.
+        </p>
+      </section>
+
+      <section class="prose" id="limits" aria-labelledby="limits-heading">
+        <h2 id="limits-heading">What it will not do</h2>
+        <p>
+          It will not write alternate text for you. A model can produce a plausible sentence about
+          an image, and a plausible sentence about a chart of clinical outcomes is worse than no
+          sentence at all, because a reader has no way to know it is wrong. Undescribed figures are
+          reported instead.
+        </p>
+        <p>
+          It will not embed a font that is not in the file, and it will not guess what a character
+          code means when nothing in the document says. Codes that cannot be resolved are left
+          unmapped and counted, rather than filled with spaces to make a checker pass.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="shell footer__inner">
+        <p>
+          Uploaded documents and their results are deleted after one hour. Nothing is sent to a
+          third party.
+        </p>
+        <p>
+          MIT licensed.
+          <a href="https://github.com/krishaygarg/ada_pdf_remediation" rel="noopener">Source</a> ·
+          <a href="/api/openapi.json">API</a>
+        </p>
+      </div>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+  </body>
 </html>

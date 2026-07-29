@@ -1,0 +1,9 @@
+{
+  "//": "Shared by CI and by anyone running pa11y locally. The sandbox flags are needed because GitHub's runners disable unprivileged user namespaces, so Chromium cannot start its own sandbox. The browser only ever loads pages served from localhost by this repository.",
+  "standard": "WCAG2AA",
+  "runners": ["axe", "htmlcs"],
+  "chromeLaunchConfig": {
+    "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+  },
+  "timeout": 60000
+}
