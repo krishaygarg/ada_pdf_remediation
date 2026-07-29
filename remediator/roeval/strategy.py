@@ -19,6 +19,7 @@ in its own package and still be selected by name here.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cache
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
@@ -74,11 +75,11 @@ class ReadingOrderStrategy(Protocol):
 
     def sort(
         self, elements: Sequence[PageElement], page_image_path: str | None = None
-    ) -> list[PageElement]: ...
+    ) -> list[PageElement]:
+        """Return ``elements`` in reading order."""
 
 
 _REGISTRY: dict[str, ReadingOrderStrategy] = {}
-_ENTRY_POINTS_LOADED = False
 
 
 def register(strategy: ReadingOrderStrategy, *, replace: bool = False) -> ReadingOrderStrategy:
@@ -91,11 +92,13 @@ def register(strategy: ReadingOrderStrategy, *, replace: bool = False) -> Readin
     return strategy
 
 
+@cache
 def _load_entry_points() -> None:
-    global _ENTRY_POINTS_LOADED
-    if _ENTRY_POINTS_LOADED:
-        return
-    _ENTRY_POINTS_LOADED = True
+    """Import every registered strategy distribution, once per process.
+
+    Cached rather than guarded by a module-level flag, so the memo cannot fall
+    out of step with the branch that reads it.
+    """
     from importlib.metadata import entry_points
 
     for entry in entry_points(group=ENTRY_POINT_GROUP):
@@ -109,8 +112,12 @@ def _load_entry_points() -> None:
 
 
 def available() -> dict[str, ReadingOrderStrategy]:
-    """Every registered strategy, keyed by name."""
-    _ensure_builtins()
+    """Every registered strategy, keyed by name.
+
+    The built-ins are registered by this package's ``__init__``, not from here.
+    Reaching into :mod:`.adapters` at this point would close an import cycle,
+    since every adapter imports this module for :func:`register`.
+    """
     _load_entry_points()
     return dict(_REGISTRY)
 
@@ -123,13 +130,6 @@ def get(name: str) -> ReadingOrderStrategy:
     except KeyError:
         known = ", ".join(sorted(strategies)) or "none"
         raise LookupError(f"no reading order strategy named {name!r}; known: {known}") from None
-
-
-def _ensure_builtins() -> None:
-    if "stream-order" not in _REGISTRY:
-        from . import adapters
-
-        adapters.register_all()
 
 
 def validate_ordering(original: Sequence[PageElement], produced: Sequence[PageElement]) -> None:

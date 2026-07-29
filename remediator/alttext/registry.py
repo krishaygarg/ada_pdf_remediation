@@ -8,6 +8,7 @@ package and selected by name, without a change to this repository.
 
 from __future__ import annotations
 
+from functools import cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
@@ -16,7 +17,6 @@ if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
 ENTRY_POINT_GROUP = "ada_pdf_remediator.alttext"
 
 _PROVIDERS: dict[str, AltTextProvider] = {}
-_ENTRY_POINTS_LOADED = False
 
 
 def register_provider(provider: AltTextProvider, *, replace: bool = False) -> None:
@@ -29,11 +29,14 @@ def register_provider(provider: AltTextProvider, *, replace: bool = False) -> No
     _PROVIDERS[name] = provider
 
 
+@cache
 def _load_entry_points() -> None:
-    global _ENTRY_POINTS_LOADED
-    if _ENTRY_POINTS_LOADED:
-        return
-    _ENTRY_POINTS_LOADED = True
+    """Import every registered provider distribution, once per process.
+
+    Cached rather than guarded by a module-level flag. Scanning entry points is
+    the kind of work that must not repeat on every lookup, and a memo the
+    language maintains cannot fall out of step with the branch that reads it.
+    """
     from importlib.metadata import entry_points
 
     for entry in entry_points(group=ENTRY_POINT_GROUP):

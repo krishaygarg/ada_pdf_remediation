@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Iterator
+from functools import cache
 from pathlib import Path
 
 import pikepdf
@@ -62,14 +63,14 @@ def rule_catalogue() -> list[RuleMetadata]:
     return [metadata for metadata, _ in registered_rules().values()]
 
 
-_LOADED = False
-
-
+@cache
 def _load_rule_modules() -> None:
-    """Import the rule packages so their decorators run."""
-    global _LOADED
-    if _LOADED:
-        return
+    """Import the rule packages so their decorators run, once per process.
+
+    Cached rather than guarded by a module-level flag. Re-importing would raise
+    from the duplicate registration check in ``rule``, so running exactly once
+    is a correctness requirement here and not only an optimisation.
+    """
     from importlib import import_module
     from pkgutil import iter_modules
 
@@ -77,7 +78,6 @@ def _load_rule_modules() -> None:
 
     for module in iter_modules(rules.__path__):
         import_module(f"{rules.__name__}.{module.name}")
-    _LOADED = True
 
 
 def audit_document(

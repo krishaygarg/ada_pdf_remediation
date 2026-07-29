@@ -20,7 +20,12 @@ from remediator.fonts.glyphnames import (
     normalise_for_text_extraction,
     resolve_glyph_name,
 )
-from remediator.fonts.recovery import Source, recover_mapping
+from remediator.fonts.recovery import (
+    SOURCE_PRIORITY,
+    RecoveredMapping,
+    Source,
+    recover_mapping,
+)
 from remediator.fonts.tounicode import (
     build_tounicode_cmap,
     choose_codespace,
@@ -307,6 +312,35 @@ class TestRecoveryPriority:
         for key, value in entries.items():
             base[f"/{key}"] = value
         return pdf.make_indirect(base)
+
+    def test_the_priority_order_matches_the_enum_it_documents(self) -> None:
+        """SOURCE_PRIORITY used to be a second, hand-written ordering that
+        nothing compared against the enum, so the two could disagree silently.
+        It is derived now, and this pins that it stays derived."""
+        assert tuple(Source) == SOURCE_PRIORITY
+        assert SOURCE_PRIORITY[0] is Source.EXISTING_TOUNICODE
+        assert SOURCE_PRIORITY[-1] is Source.BASE_ENCODING
+
+    def test_counts_are_reported_most_authoritative_source_first(self) -> None:
+        """Insertion order would report whichever source happened to resolve a
+        code first, which varies with the document rather than the authority."""
+        mapping = RecoveredMapping(font_name="Test", composite=False)
+        # Added least-authoritative first, so insertion order is the reverse of
+        # the order the report has to use.
+        mapping.add(1, "a", Source.BASE_ENCODING)
+        mapping.add(2, "b", Source.EMBEDDED_PROGRAM)
+        mapping.add(3, "c", Source.EXISTING_TOUNICODE)
+        reported = list(mapping.counts_by_source())
+        assert reported == [
+            Source.EXISTING_TOUNICODE.value,
+            Source.EMBEDDED_PROGRAM.value,
+            Source.BASE_ENCODING.value,
+        ]
+
+    def test_a_source_that_resolved_nothing_is_omitted(self) -> None:
+        mapping = RecoveredMapping(font_name="Test", composite=False)
+        mapping.add(1, "a", Source.EMBEDDED_PROGRAM)
+        assert mapping.counts_by_source() == {Source.EMBEDDED_PROGRAM.value: 1}
 
     def test_an_existing_map_takes_precedence(self) -> None:
         pdf = pikepdf.new()

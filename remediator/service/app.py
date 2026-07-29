@@ -39,6 +39,7 @@ from .security import (
     RateLimiter,
     client_key,
     cors_headers,
+    safe_for_log,
     validate_upload,
 )
 
@@ -127,7 +128,11 @@ def create_app(
     def _server_error(_error: Any) -> tuple[Response, int]:
         # The detail goes to the log, not to the caller: an exception message
         # from a PDF parser can disclose paths and document internals.
-        app.logger.exception("unhandled error serving %s", request.path)
+        #
+        # The path is escaped before it is logged. It reaches here already
+        # percent-decoded, so an embedded newline would otherwise let a caller
+        # write a second line into the log that reads like a real entry.
+        app.logger.exception("unhandled error serving %s", safe_for_log(request.path))
         return jsonify({"error": "The server could not complete the request."}), 500
 
     # -- health ------------------------------------------------------------
@@ -229,9 +234,17 @@ def create_app(
 
         try:
             runner.submit(job, work)
-        except QueueFull as exc:
-            store.update(job.id, state=JobState.FAILED, error=str(exc))
-            return jsonify({"error": str(exc)}), 503
+        except QueueFull:
+            # Composed from the service's own configuration rather than from the
+            # exception. The caller learns the queue is full and roughly why,
+            # which is all that is actionable, and the response cannot begin
+            # carrying internals if QueueFull's wording later changes. The job
+            # record is written with the same text because a caller can read it
+            # back from the job endpoint.
+            app.logger.warning("refused a job: %d already queued or running", runner.queue_limit)
+            message = f"{runner.queue_limit} jobs are already queued or running. Try again shortly."
+            store.update(job.id, state=JobState.FAILED, error=message)
+            return jsonify({"error": message}), 503
 
         payload = job.to_dict()
         payload["warnings"] = list(verdict.warnings)

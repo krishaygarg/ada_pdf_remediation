@@ -213,9 +213,15 @@ class TestContentSecurityPolicy:
         """The policy the server sends forbids them, so the page must not need them."""
         assert not re.search(r'\sstyle="', html)
 
-    def test_the_page_uses_no_inline_executable_script(self, html: str) -> None:
-        for attributes in re.findall(r"<script([^>]*)>", html):
-            assert "src=" in attributes or 'type="application/ld+json"' in attributes
+    def test_the_page_uses_no_inline_executable_script(self, document: list[Element]) -> None:
+        # Parsed rather than matched with a regular expression. A pattern like
+        # `<script([^>]*)>` misses `<SCRIPT>`, so the test would pass while an
+        # inline block sat on the page in different case. The parser normalises
+        # tag and attribute names, which is the property being relied on here.
+        for element in document:
+            if element.tag != "script":
+                continue
+            assert element.get("src") is not None or element.get("type") == "application/ld+json"
 
     def test_no_asset_is_loaded_from_a_third_party(self, html: str) -> None:
         """A webfont from a CDN is a render-blocking request that also hands the

@@ -26,9 +26,11 @@ from remediator.progress import (
 from remediator.service import create_app
 from remediator.service.jobs import JobRunner, JobState, JobStore, QueueFull
 from remediator.service.security import (
+    LOG_FIELD_LIMIT,
     MAX_UPLOAD_BYTES,
     RateLimiter,
     client_key,
+    safe_for_log,
     validate_upload,
 )
 
@@ -154,6 +156,30 @@ class TestUploadValidation:
         verdict = validate_upload(b"%PDF-1.7\n/Encrypt 1 0 R", "a.pdf")
         assert verdict.accepted
         assert any("encrypted" in warning for warning in verdict.warnings)
+
+
+class TestLogFieldEscaping:
+    """A request path reaches a handler percent-decoded, so it can carry a real
+    newline and forge a second log line that reads like a genuine entry."""
+
+    @pytest.mark.parametrize("control", ["\n", "\r", "\r\n", "\x00", "\x1b"])
+    def test_no_control_character_survives(self, control: str) -> None:
+        assert control not in safe_for_log(f"/api/jobs/{control}oops")
+
+    def test_a_forged_entry_cannot_start_a_new_line(self) -> None:
+        forged = "/x\nERROR:root:the disk is on fire"
+        escaped = safe_for_log(forged)
+        assert "\n" not in escaped
+        # The attempt stays legible in the record rather than being deleted.
+        assert "the disk is on fire" in escaped
+
+    def test_ordinary_paths_are_unchanged(self) -> None:
+        assert safe_for_log("/api/jobs/7f3a-21") == "/api/jobs/7f3a-21"
+
+    def test_a_long_path_is_truncated_and_says_so(self) -> None:
+        escaped = safe_for_log("/" + "a" * 5000)
+        assert escaped.endswith("...")
+        assert len(escaped) <= LOG_FIELD_LIMIT + 3
 
 
 class TestRateLimiter:

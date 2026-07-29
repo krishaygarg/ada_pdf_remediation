@@ -29,6 +29,25 @@ PDF_MAGIC_SEARCH_WINDOW = 1024
 RISKY_ACTIONS = ("/JavaScript", "/JS", "/Launch", "/EmbeddedFile", "/RichMedia", "/GoToR")
 
 
+#: Longest request path recorded in a log line. A path is attacker supplied and
+#: unbounded, and a log file is not the place to store it in full.
+LOG_FIELD_LIMIT = 200
+
+
+def safe_for_log(value: str, limit: int = LOG_FIELD_LIMIT) -> str:
+    """Render caller-supplied text as a single printable log field.
+
+    A request path arrives percent-decoded, so ``/%0aINFO:%20ok`` reaches the
+    handler containing a real newline and would otherwise write a second line
+    into the log that reads like a genuine entry. Control characters are escaped
+    rather than stripped so that the attempt stays visible in the record.
+    """
+    truncated = value[:limit]
+    escaped = truncated.encode("unicode_escape").decode("ascii")
+    suffix = "..." if len(value) > limit else ""
+    return f"{escaped}{suffix}"
+
+
 @dataclass(frozen=True)
 class UploadVerdict:
     """The outcome of validating an upload."""
@@ -192,6 +211,7 @@ def client_key(remote_addr: str | None, forwarded_for: str | None) -> str:
 __all__ = [
     "ALLOWED_ORIGINS_ENV_VAR",
     "DEFAULT_ALLOWED_ORIGINS",
+    "LOG_FIELD_LIMIT",
     "MAX_UPLOAD_BYTES",
     "PDF_MAGIC",
     "RISKY_ACTIONS",
@@ -201,5 +221,6 @@ __all__ = [
     "allowed_origins",
     "client_key",
     "cors_headers",
+    "safe_for_log",
     "validate_upload",
 ]

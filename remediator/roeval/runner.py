@@ -194,10 +194,12 @@ def to_markdown(results: Sequence[StrategyResult], page_count: int) -> str:
     if not metrics_are_implemented(results):
         lines += [
             "",
-            "> Every metric reads zero because "
-            "`remediator.reading_order.calculate_evaluation_metrics` still returns "
-            "zeros. That is Phase 2 of the research specification. The exact order "
-            "column is computed here and is meaningful now.",
+            (
+                "> Every metric reads zero because "
+                "`remediator.reading_order.calculate_evaluation_metrics` still returns "
+                "zeros. That is Phase 2 of the research specification. The exact order "
+                "column is computed here and is meaningful now."
+            ),
         ]
 
     failing = [(r.strategy, page) for r in results for page in r.failures]
