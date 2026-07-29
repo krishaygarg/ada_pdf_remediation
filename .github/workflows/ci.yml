@@ -232,16 +232,23 @@ jobs:
             sleep 1
           done
 
-      # axe-core is the engine behind most accessibility tooling. Against a real
-      # browser it catches what static checks cannot: computed contrast after
-      # the cascade, focus order, and accessible names as the accessibility tree
-      # actually resolves them.
-      - name: Run axe-core on every state
+      # pa11y rather than @axe-core/cli, which ships a ChromeDriver pinned to a
+      # Chrome version the runner does not have. pa11y drives its own Chromium
+      # through Puppeteer, so it cannot drift from the environment, and it runs
+      # HTML CodeSniffer alongside axe-core for strictly more coverage.
+      #
+      # A real browser catches what static checks cannot: computed contrast
+      # after the cascade, focus order, and accessible names as the
+      # accessibility tree actually resolves them.
+      - name: Check every state with axe-core and HTML CodeSniffer
         run: |
           for page in idle running report; do
             echo "--- $page"
-            npx --yes @axe-core/cli@4.10.1 "http://127.0.0.1:8000/$page.html" \
-              --exit --tags wcag2a,wcag2aa,wcag21a,wcag21aa,wcag22aa
+            npx --yes pa11y@9 \
+              --standard WCAG2AA \
+              --runner axe --runner htmlcs \
+              --reporter cli \
+              "http://127.0.0.1:8000/$page.html"
           done
 
       - name: Run Lighthouse
