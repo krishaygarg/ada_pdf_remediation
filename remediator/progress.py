@@ -86,7 +86,8 @@ class ProgressEvent:
 class ProgressReporter(Protocol):
     """Receives progress events. Implementations must not raise."""
 
-    def __call__(self, event: ProgressEvent) -> None: ...
+    def __call__(self, event: ProgressEvent) -> None:
+        """Handle one progress event."""
 
 
 class NullReporter:

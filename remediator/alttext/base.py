@@ -66,7 +66,6 @@ class AltTextProvider(Protocol):
 
     def describe(self, figure: FigureContext) -> AltTextResult:
         """Return a description for ``figure``, or decline."""
-        ...
 
 
 __all__ = ["AltTextProvider", "AltTextResult", "FigureContext"]

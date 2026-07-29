@@ -44,8 +44,10 @@ def render() -> str:
         f"This project implements **{summary['implemented_conditions']} conditions** across "
         f"**{summary['implemented_checkpoints']} of {MATTERHORN_CHECKPOINTS}** checkpoints.",
         "",
-        "Everything not listed below is unimplemented. See "
-        "[CONTRIBUTING](../../CONTRIBUTING.md) for the backlog.",
+        (
+            "Everything not listed below is unimplemented. See "
+            "[CONTRIBUTING](../../CONTRIBUTING.md) for the backlog."
+        ),
         "",
     ]
 
@@ -78,13 +80,17 @@ def render() -> str:
         "| Level | Meaning |",
         "|---|---|",
         "| Error | The document does not conform. |",
-        "| Warning | It conforms, but a reader is likely to be obstructed. A figure "
-        "described only as `image` is the usual case. |",
+        (
+            "| Warning | It conforms, but a reader is likely to be obstructed. A figure "
+            "described only as `image` is the usual case. |"
+        ),
         "| Review | Software cannot settle it; a person has to look. |",
         "",
-        "A rule that raises is recorded rather than swallowed, and makes the report "
-        "non-conformant. A check that failed to run must never look like a check that "
-        "found nothing.",
+        (
+            "A rule that raises is recorded rather than swallowed, and makes the report "
+            "non-conformant. A check that failed to run must never look like a check that "
+            "found nothing."
+        ),
         "",
     ]
     return "\n".join(lines)
