@@ -70,7 +70,7 @@ def _element_from(raw: dict[str, Any], line: int, page_index: int) -> tuple[Page
         if key not in raw:
             raise DatasetError(f"line {line}: an element is missing {key!r}")
     bbox = raw["bbox"]
-    if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+    if not isinstance(bbox, list | tuple) or len(bbox) != 4:
         raise DatasetError(f"line {line}: bbox must be four numbers, got {bbox!r}")
     try:
         coordinates = tuple(float(value) for value in bbox)

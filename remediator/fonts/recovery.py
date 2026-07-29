@@ -18,15 +18,13 @@ from __future__ import annotations
 import enum
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+
+import pikepdf
 
 from .embedded import extract_builtin_encoding, extract_builtin_unicode
 from .encodings import apply_differences, encoding_table
 from .glyphnames import normalise_for_text_extraction, resolve_glyph_name
 from .tounicode import build_tounicode_cmap, parse_tounicode_cmap
-
-if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
-    import pikepdf
 
 #: An unreadable source is not fatal here, because a later source may still
 #: resolve the code and an unresolved code is reported rather than filled. The
@@ -115,7 +113,7 @@ def _base_encoding_name(font: pikepdf.Object, composite: bool) -> str | None:
         text = str(encoding)
         if text.startswith("/") and text.endswith("Encoding"):
             return text.lstrip("/")
-        base = encoding.get("/BaseEncoding") if hasattr(encoding, "get") else None
+        base = encoding.get("/BaseEncoding") if isinstance(encoding, pikepdf.Dictionary) else None
         if base is not None:
             return str(base).lstrip("/")
 
@@ -177,7 +175,7 @@ def recover_mapping(font: pikepdf.Object, font_name: str | None = None) -> Recov
 
     # 3. Explicit differences declared in the PDF override any base encoding.
     encoding = font.get("/Encoding")
-    if encoding is not None and hasattr(encoding, "get"):
+    if isinstance(encoding, pikepdf.Dictionary):
         differences = encoding.get("/Differences")
         if differences is not None:
             for code, glyph_name in apply_differences({}, differences).items():
