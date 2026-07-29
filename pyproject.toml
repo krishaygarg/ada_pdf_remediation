@@ -133,6 +133,12 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG001", "ARG002"]
 
+# These modules exist to handle characters that look like other characters.
+# The ambiguous-character rules would forbid writing the very cases under test,
+# such as distinguishing an en dash from a hyphen or a minus sign from both.
+"remediator/fonts/glyphnames.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/test_fonts.py" = ["ARG001", "ARG002", "RUF001", "RUF002", "RUF003"]
+
 # Modules that later changes in this series rewrite. Enforcing the full rule set
 # on them now would produce a large refactoring diff that buries the actual
 # behavioural fix, so the exemptions are listed explicitly and removed as each
@@ -167,7 +173,13 @@ check_untyped_defs = true
 # silent so that importing a not-yet-typed module does not report errors from
 # outside the checked set; the file list is what grows over time.
 follow_imports = "silent"
-files = ["remediator/config.py", "remediator/cli", "remediator/audit", "remediator/numbertree.py"]
+files = [
+    "remediator/config.py",
+    "remediator/cli",
+    "remediator/audit",
+    "remediator/fonts",
+    "remediator/numbertree.py",
+]
 
 [[tool.mypy.overrides]]
 module = [

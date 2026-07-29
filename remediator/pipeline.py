@@ -5,7 +5,7 @@ import pdfplumber
 import pikepdf
 
 from .content_filter import filter_page_content
-from .font_patcher import generate_tounicode_cmap
+from .font_patcher import recover_font_mapping
 from .numbertree import build_number_tree
 
 #: Namespace URI of the PDF/UA identification schema, ISO 14289-1 clause 5.
@@ -428,8 +428,9 @@ def remediate_single_pdf(input_path: str, output_path: str):
         document_elem["/P"] = struct_tree_root
         root["/StructTreeRoot"] = struct_tree_root
 
-        print("[REMEDIATOR] Patching missing font /ToUnicode CMap character mappings...")
+        print("[REMEDIATOR] Recovering font character mappings...")
         font_objs = []
+        seen_fonts: set[tuple[int, int]] = set()
         try:
             for page in pdf.pages:
                 if "/Resources" in page:
@@ -437,33 +438,60 @@ def remediate_single_pdf(input_path: str, output_path: str):
                     if isinstance(res, pikepdf.Dictionary) and "/Font" in res:
                         fonts_dict = res.Font
                         if isinstance(fonts_dict, pikepdf.Dictionary):
-                            for k in fonts_dict.keys():
-                                try:
-                                    f_obj = fonts_dict[k]
-                                    if f_obj not in font_objs:
-                                        font_objs.append(f_obj)
-                                except Exception:
-                                    pass
+                            for _key, f_obj in fonts_dict.items():
+                                if not isinstance(f_obj, pikepdf.Dictionary):
+                                    continue
+                                marker = f_obj.objgen
+                                if marker != (0, 0):
+                                    if marker in seen_fonts:
+                                        continue
+                                    seen_fonts.add(marker)
+                                font_objs.append(f_obj)
         except Exception:
             pass
 
+        unresolved_total = 0
         for idx, obj in enumerate(font_objs):
+            base_font = str(obj.get("/BaseFont", "Unnamed")).lstrip("/")
             try:
-                if isinstance(obj, pikepdf.Dictionary) and "/ToUnicode" not in obj:
-                    base_font = "Unknown"
-                    if "/BaseFont" in obj:
-                        base_font = str(obj.get("/BaseFont", "Unknown"))
-                    print(f"  - Patching font {idx} ({base_font})...")
-                    generated_cmap = generate_tounicode_cmap(obj, base_font, input_path)
-                    cmap_stream = pikepdf.Stream(pdf, generated_cmap.encode("utf-8"))
-                    obj["/ToUnicode"] = cmap_stream
+                # Every font is processed, not only those missing a map. An
+                # existing map is treated as the most authoritative source and
+                # is extended rather than replaced, so a font that already has
+                # a good map keeps it and one with a partial map gains the rest.
+                recovered = recover_font_mapping(obj, base_font)
+                if not recovered.mapping:
+                    print(f"  - {base_font}: no character mapping could be recovered")
+                    continue
+
+                cmap_stream = pikepdf.Stream(pdf, recovered.to_cmap().encode("utf-8"))
+                obj["/ToUnicode"] = cmap_stream
+
+                summary = ", ".join(
+                    f"{count} from {source}"
+                    for source, count in recovered.counts_by_source().items()
+                )
+                print(f"  - {base_font}: {recovered.resolved_count} codes mapped ({summary})")
+
+                if recovered.unresolved_glyphs:
+                    unresolved_total += len(recovered.unresolved_glyphs)
+                    names = sorted(set(recovered.unresolved_glyphs.values()))[:6]
+                    print(
+                        f"      {len(recovered.unresolved_glyphs)} codes left unmapped "
+                        f"(glyphs: {', '.join(names)})"
+                    )
             except Exception as e:
-                print(f"  - Skipping font {idx} due to error: {e}")
+                print(f"  - {base_font}: recovery failed, leaving the font unchanged ({e})")
+                _ = idx
+
+        if unresolved_total:
+            # Reported rather than papered over. A code mapped to a space looks
+            # like success and silently deletes text from the document.
+            print(
+                f"[REMEDIATOR] {unresolved_total} character codes could not be resolved "
+                "and were left unmapped."
+            )
 
         print(f"[REMEDIATOR] Saving remediated PDF output: {output_path}")
         pdf.save(output_path)
 
     print("[REMEDIATOR] Pipeline completed successfully!")
-
-    # Clean up temporary raster images if any remain
-    pass

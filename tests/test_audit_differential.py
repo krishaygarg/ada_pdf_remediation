@@ -163,25 +163,54 @@ class TestDirectionalInvariant:
 class TestDeliberateDivergence:
     """Where the engine reports more than the reference, and why."""
 
-    def test_character_map_quality_is_reported_although_verapdf_accepts_it(
-        self, conforming: Path
+    def test_a_degenerate_character_map_is_reported_although_verapdf_accepts_it(
+        self, conforming: Path, tmp_path: Path
     ) -> None:
-        """The reference checks that a /ToUnicode map exists, not that it works.
+        """The reference checks that every used code is mapped, not what it maps to.
 
-        The bundled sample is remediated with a fallback that maps unmapped
-        codes to a space. veraPDF accepts the result. Extracting the text shows
-        the en dash and the increment operator have been replaced, so the
-        document scores as conformant while being less readable than before it
-        was processed.
+        Coverage is preserved below and only the destinations are replaced with
+        spaces, which is precisely the shape a naive fallback produces. veraPDF
+        accepts the result because every code resolves to something; this engine
+        rejects it because what it resolves to is nothing. The divergence is the
+        point of condition 10-003, and is asserted here so it is not later
+        mistaken for a disagreement that ought to be reconciled.
         """
-        reference = verapdf.validate(conforming)
-        assert reference.compliant, reference.describe()
+        from remediator.fonts.tounicode import build_tounicode_cmap, parse_tounicode_cmap
 
-        ours = audit_document(conforming, include=["10-003"])
-        assert ours.errors, (
-            "the engine should report degenerate character maps that the "
-            "reference validator accepts"
+        damaged = tmp_path / "degenerate_cmap.pdf"
+        with pikepdf.open(conforming) as pdf:
+            for page in pdf.pages:
+                fonts = (page.obj.get("/Resources") or {}).get("/Font")
+                if not fonts:
+                    continue
+                for _name, font in fonts.items():
+                    existing = font.get("/ToUnicode")
+                    if existing is None:
+                        continue
+                    covered = parse_tounicode_cmap(bytes(existing.read_bytes()))
+                    flattened = dict.fromkeys(covered, " ")
+                    font["/ToUnicode"] = pikepdf.Stream(
+                        pdf, build_tounicode_cmap(flattened).encode("ascii")
+                    )
+            pdf.save(damaged)
+
+        reference = verapdf.validate(damaged)
+        assert reference.compliant, (
+            "the reference validator is expected to accept this file; if it "
+            f"now rejects it the divergence has closed. {reference.describe()}"
         )
+
+        ours = audit_document(damaged, include=["10-003"])
+        assert ours.errors, "the engine should report a character map that resolves to spaces"
+
+    def test_the_remediated_sample_now_has_usable_character_maps(self, conforming: Path) -> None:
+        """Regression guard for the recovery this branch introduces.
+
+        Before it, this same document tripped condition 10-003 on all eight of
+        its embedded fonts.
+        """
+        ours = audit_document(conforming, include=["10"])
+        assert not ours.errors, [f.message for f in ours.errors]
 
     def test_unembedded_fonts_are_reported_by_both(
         self, make_text_pdf: object, tmp_path: Path
