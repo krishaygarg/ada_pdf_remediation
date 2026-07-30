@@ -274,11 +274,10 @@ function renderReport(job) {
   show(dom.run, false);
   show(dom.report, true);
   dom.download.focus();
-}
-
-  dom.report.querySelector('h2').focus({ preventScroll: true });
+  dom.report.querySelector('h2')?.focus({ preventScroll: true });
   dom.report.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
 
 /* ------------------------------------------------------------------ flow */
 
