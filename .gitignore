@@ -62,6 +62,10 @@ remediated_*.pdf
 *.png
 # Interface assets are part of the deliverable, not build debris.
 !web/*.png
+samples/*.pdf
+!samples/physics/physics.pdf
+mcp_config.json
+
 
 # Model weights
 *.pt
