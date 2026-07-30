@@ -229,7 +229,9 @@ def create_app(
             )
             store.record_event(
                 current.id,
-                ProgressEvent(stage=Stage.AUDITING, message="Auditing conformance & running axesCheck"),
+                ProgressEvent(
+                    stage=Stage.AUDITING, message="Auditing conformance & running axesCheck"
+                ),
             )
             audit_dict = to_dict(audit_document(current.output_path))
 
@@ -240,8 +242,16 @@ def create_app(
                     "report": {
                         "body": {
                             "reports": [
-                                {"type": "PDF/UA", "uaIndex": 100.0, "report": {"value": {"errorCount": 0, "warningCount": 0}}},
-                                {"type": "WCAG2CheckSet", "uaIndex": 100.0, "report": {"value": {"errorCount": 0, "warningCount": 0}}},
+                                {
+                                    "type": "PDF/UA",
+                                    "uaIndex": 100.0,
+                                    "report": {"value": {"errorCount": 0, "warningCount": 0}},
+                                },
+                                {
+                                    "type": "WCAG2CheckSet",
+                                    "uaIndex": 100.0,
+                                    "report": {"value": {"errorCount": 0, "warningCount": 0}},
+                                },
                             ]
                         }
                     },
@@ -249,7 +259,6 @@ def create_app(
             else:
                 axes_res = audit_pdf_axescheck(current.output_path)
             audit_dict["axescheck"] = axes_res
-
 
             if axes_res.get("success"):
                 report_obj = axes_res.get("report")
@@ -274,7 +283,6 @@ def create_app(
                     total_errors += errs
                     total_warnings += warns
 
-
                 audit_dict["axescheck_summary"] = {
                     "success": True,
                     "scores": scores,
@@ -290,7 +298,6 @@ def create_app(
                 }
 
             return {"audit": audit_dict}
-
 
         try:
             runner.submit(job, work)
@@ -380,7 +387,9 @@ def create_app(
 
     @app.get("/")
     def index() -> Any:
-        return send_from_directory(WEB_DIR, "index.html")
+        response = send_from_directory(WEB_DIR, "index.html")
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
 
     @app.get("/<path:asset>")
     def static_asset(asset: str) -> Any:
@@ -391,9 +400,14 @@ def create_app(
             return jsonify({"error": "No such endpoint."}), 404
         candidate = (WEB_DIR / asset).resolve()
         if not _within(candidate, WEB_DIR) or not candidate.is_file():
-            return send_from_directory(WEB_DIR, "index.html")
+            resp = send_from_directory(WEB_DIR, "index.html")
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+            return resp
         guessed, _ = mimetypes.guess_type(candidate.name)
-        return send_from_directory(WEB_DIR, asset, mimetype=guessed)
+        response = send_from_directory(WEB_DIR, asset, mimetype=guessed)
+        if asset.endswith(".js") or asset.endswith(".css") or asset.endswith(".html"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
 
     if enable_sweeper:
         _start_sweeper(store, retention_seconds)

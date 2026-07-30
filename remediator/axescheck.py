@@ -14,7 +14,6 @@ import urllib.request
 from pathlib import Path
 
 
-
 def solve_altcha_challenge(challenge_data: dict) -> str:
     """
     Solves ALTCHA SHA-256 proof-of-work challenge in <1ms.
@@ -125,4 +124,3 @@ if __name__ == "__main__":
     print(f"Running axesCheck (check.axes4.com) audit on: {target}...")
     res = audit_pdf_axescheck(target)
     print(json.dumps(res, indent=2))
-
