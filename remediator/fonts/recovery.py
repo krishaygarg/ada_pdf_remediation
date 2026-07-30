@@ -176,7 +176,9 @@ def recover_mapping(font: pikepdf.Object, font_name: str | None = None) -> Recov
                     for code, text in identity_h_cidfont_cmap(bytes(program.read_bytes())).items():
                         result.add(code, text, Source.EMBEDDED_PROGRAM)
                 except Exception:
-                    _LOG.debug("could not read Identity-H CIDFont program for %s", name, exc_info=True)
+                    _LOG.debug(
+                        "could not read Identity-H CIDFont program for %s", name, exc_info=True
+                    )
 
     for code, text in extract_builtin_unicode(descendant).items():
         result.add(code, text, Source.EMBEDDED_PROGRAM)

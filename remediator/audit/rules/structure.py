@@ -484,4 +484,3 @@ def _descendants(node: StructNode) -> Iterator[StructNode]:
     for child in node.children:
         yield child
         yield from _descendants(child)
-

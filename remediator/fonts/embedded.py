@@ -225,7 +225,6 @@ def find_system_truetype_font() -> bytes | None:
     for path in candidates:
         if Path(path).exists():
             try:
-
                 data = Path(path).read_bytes()
                 if (
                     data.startswith(b"\x00\x01\x00\x00")
@@ -279,4 +278,3 @@ __all__ = [
     "truetype_cmap",
     "type1_builtin_encoding",
 ]
-
