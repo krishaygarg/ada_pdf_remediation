@@ -4,8 +4,9 @@
 
 [![CI](https://github.com/krishaygarg/ada_pdf_remediation/actions/workflows/ci.yml/badge.svg)](https://github.com/krishaygarg/ada_pdf_remediation/actions/workflows/ci.yml)
 [![PDF/UA-1](https://img.shields.io/badge/PDF%2FUA--1-verified%20by%20veraPDF-0f766e)](https://verapdf.org/)
-[![Matterhorn](https://img.shields.io/badge/Matterhorn-34%20conditions-0f766e)](https://pdfa.org/resource/matterhorn-protocol/)
+[![Matterhorn](https://img.shields.io/badge/Matterhorn-42%20conditions-0f766e)](https://pdfa.org/resource/matterhorn-protocol/)
 [![Python](https://img.shields.io/badge/python-3.10%20to%203.14-blue)](https://www.python.org/)
+
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A screen reader does not read a page the way you see it. It follows a tag tree stored inside the file, and most PDFs do not have one. The text is there, but it arrives in whatever order the producer happened to write it, with nothing marking what is a heading, what is a caption, and what is decoration. Academic papers are the worst offenders: two columns interleave, equations interrupt sentences, and figures carry no description at all.
@@ -62,7 +63,7 @@ flowchart TB
 
     subgraph AUDIT [Audit]
         direction TB
-        G[34 Matterhorn conditions]
+        G[42 Matterhorn conditions]
         H[Text contrast<br/>WCAG 2.x and APCA]
         I[veraPDF cross-check<br/>in CI]
         G --> H --> I
@@ -105,7 +106,7 @@ flowchart TB
 | Link descriptions from the destination | Automated |
 | OCR text layer for scanned pages | Automated |
 | Contrast measurement (WCAG 2.x, APCA) | Automated |
-| Conformance audit, 34 conditions | Automated |
+| Conformance audit, 42 conditions | Automated |
 | **Alternate text for figures** | **Needs a person** |
 | **Font embedding when absent** | **Not possible from the file** |
 | **Reading order in multi-column layouts** | **Research in progress** |
@@ -116,7 +117,7 @@ flowchart TB
 
 The [Matterhorn Protocol 1.1](https://pdfa.org/resource/matterhorn-protocol/) defines **31 checkpoints and 136 failure conditions** for PDF/UA-1. Of those, **87 can be determined by software**, 47 need human judgement, and 2 have no defined test.
 
-This implements **34 conditions across 17 of the 31 checkpoints**. `check-compliance --list-rules` prints them with their ISO clause and WCAG cross-reference, and `coverage_summary()` reports the gap rather than implying there is none.
+This implements **42 conditions across 20 of the 31 checkpoints**. `check-compliance --list-rules` prints them with their ISO clause and WCAG cross-reference, and `coverage_summary()` reports the gap rather than implying there is none.
 
 Every rule names the condition it implements:
 
@@ -189,7 +190,8 @@ Two tracks are active, with their specifications under [`docs/planning/`](docs/p
 
 **[Technical image alt text](docs/planning/alt_text_research_spec.md).** Lightweight vision-language models for formulas and charts. `remediator.alttext` defines the provider interface; a model plugs in through an entry point without touching the pipeline.
 
-[CONTRIBUTING.md](CONTRIBUTING.md) has the full backlog, including roughly 53 unimplemented Matterhorn conditions that are each one function and one fixture.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the full backlog, including roughly 45 unimplemented Matterhorn conditions that are each one function and one fixture.
+
 
 ## Licence
 

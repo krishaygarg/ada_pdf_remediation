@@ -7,7 +7,7 @@ Do not edit by hand.
 
 The Matterhorn Protocol 1.1 defines **31 checkpoints** and **136 failure conditions** for PDF/UA-1. Of those, **87** can be determined by software, 47 need human judgement, and 2 have no defined test.
 
-This project implements **34 conditions** across **17 of 31** checkpoints.
+This project implements **42 conditions** across **20 of 31** checkpoints.
 
 Everything not listed below is unimplemented. See [CONTRIBUTING](../../CONTRIBUTING.md) for the backlog.
 
@@ -31,6 +31,12 @@ Everything not listed below is unimplemented. See [CONTRIBUTING](../../CONTRIBUT
 | `04-001` | Text does not meet the minimum contrast ratio | 7.1 | 1.4.3 | human, automated here |
 | `04-002` | Text is drawn in the same colour as its background | 7.1 | 1.4.3 | human, automated here |
 | `04-003` | Text meets WCAG 2 but falls short of the APCA guidance | 7.1 | 1.4.3, 1.4.6 | human, automated here |
+
+## Checkpoint 05 Bookmarks
+
+| Condition | What it reports | ISO 14289-1 | WCAG | Determination |
+|---|---|---|---|---|
+| `05-001` | A long document or one with headings has no outline / bookmarks tree | 7.1 | 2.4.5 | software |
 
 ## Checkpoint 06 Metadata
 
@@ -90,12 +96,14 @@ Everything not listed below is unimplemented. See [CONTRIBUTING](../../CONTRIBUT
 | `15-003` | A table has no header cells | 7.5 | 1.3.1 | software |
 | `15-005` | A header cell does not declare its scope | 7.5 | 1.3.1 | software |
 | `15-006` | Table rows and cells are nested incorrectly | 7.5 | 1.3.1 | software |
+| `15-007` | A table cell span attribute is invalid | 7.5 | 1.3.1 | software |
 
 ## Checkpoint 16 Lists
 
 | Condition | What it reports | ISO 14289-1 | WCAG | Determination |
 |---|---|---|---|---|
 | `16-001` | List items and their parts are nested incorrectly | 7.6 | 1.3.1 | software |
+| `16-002` | A list item contains no body content | 7.6 | 1.3.1 | software |
 
 ## Checkpoint 17 Mathematical expressions
 
@@ -108,6 +116,21 @@ Everything not listed below is unimplemented. See [CONTRIBUTING](../../CONTRIBUT
 | Condition | What it reports | ISO 14289-1 | WCAG | Determination |
 |---|---|---|---|---|
 | `19-003` | A note has no identifier | 7.9 | 1.3.1 | software |
+
+## Checkpoint 20 Table of Contents
+
+| Condition | What it reports | ISO 14289-1 | WCAG | Determination |
+|---|---|---|---|---|
+| `20-001` | A TOC element does not contain TOCI children | 7.1 | 1.3.1 | software |
+| `20-002` | A TOCI item is not inside a TOC structure element | 7.1 | 1.3.1 | software |
+
+## Checkpoint 27 Forms
+
+| Condition | What it reports | ISO 14289-1 | WCAG | Determination |
+|---|---|---|---|---|
+| `27-001` | A form field is not reachable from the structure tree | 7.19.1 | 1.3.1, 4.1.2 | software |
+| `27-002` | A form field has no alternate description or tooltip | 7.19.1 | 1.3.1, 4.1.2 | software |
+| `27-003` | A form field declares an unrecognized or missing field type | 7.19.1 | 4.1.2 | software |
 
 ## Checkpoint 28 Annotations
 

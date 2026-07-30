@@ -32,7 +32,7 @@ So: if the tool cannot determine something, it reports that it cannot. Placehold
 
 ### A. Conformance rules, the biggest and most tractable lane
 
-The [Matterhorn Protocol 1.1](https://pdfa.org/resource/matterhorn-protocol/) defines 31 checkpoints and 136 failure conditions. 87 are determinable by software. This implements **34 across 17 checkpoints**, so roughly **53 machine-checkable conditions remain**.
+The [Matterhorn Protocol 1.1](https://pdfa.org/resource/matterhorn-protocol/) defines 31 checkpoints and 136 failure conditions. 87 are determinable by software. This implements **42 across 20 checkpoints**, so roughly **45 machine-checkable conditions remain**.
 
 Each is a small, self-contained piece of work: one function, one fixture, one test.
 
