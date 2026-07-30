@@ -415,7 +415,73 @@ def content_elements_are_not_empty(context: DocumentContext) -> Iterator[Finding
             )
 
 
+@rule(
+    RuleMetadata(
+        condition="15-007",
+        checkpoint_name="Tables",
+        summary="A table cell span attribute is invalid",
+        clause="7.5",
+        wcag=("1.3.1",),
+    )
+)
+def table_cell_spans_are_valid(context: DocumentContext) -> Iterator[Finding]:
+    """ColSpan and RowSpan attributes must be positive integers."""
+    for node in context.nodes_with_role("TD", "TH"):
+        attributes = node.element.get("/A")
+        candidates: list[pikepdf.Object] = []
+        if isinstance(attributes, pikepdf.Array):
+            candidates = list(attributes)
+        elif isinstance(attributes, pikepdf.Dictionary):
+            candidates = [attributes]
+
+        for entry in candidates:
+            if not isinstance(entry, pikepdf.Dictionary):
+                continue
+            for key in ("/ColSpan", "/RowSpan"):
+                if key in entry:
+                    try:
+                        val = int(entry[key])
+                        if val < 1:
+                            yield Finding(
+                                condition="15-007",
+                                message=f"A {node.role} cell has {key} {val}, which is less than 1.",
+                                location=node.location(),
+                                remedy=f"Set {key} to a positive integer (1 or greater).",
+                            )
+                    except (ValueError, TypeError):
+                        yield Finding(
+                            condition="15-007",
+                            message=f"A {node.role} cell has an unparseable {key} value.",
+                            location=node.location(),
+                            remedy=f"Set {key} to an integer value.",
+                        )
+
+
+@rule(
+    RuleMetadata(
+        condition="16-002",
+        checkpoint_name="Lists",
+        summary="A list item contains no body content",
+        clause="7.6",
+        wcag=("1.3.1",),
+        default_severity=Severity.WARNING,
+    )
+)
+def list_items_have_body_content(context: DocumentContext) -> Iterator[Finding]:
+    for node in context.nodes_with_role("LI"):
+        has_content = bool(node.children or node.element.get("/K"))
+        if not has_content:
+            yield Finding(
+                condition="16-002",
+                message="An LI list item element contains no child elements or content.",
+                severity=Severity.WARNING,
+                location=node.location(),
+                remedy="Populate the list item with LBody or paragraph text.",
+            )
+
+
 def _descendants(node: StructNode) -> Iterator[StructNode]:
     for child in node.children:
         yield child
         yield from _descendants(child)
+

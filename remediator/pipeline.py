@@ -54,7 +54,58 @@ def _describe_link_target(annot) -> str:
             return "Link to another location in this document"
     except Exception:
         _LOG.debug("could not read a link annotation's destination", exc_info=True)
-    return "Link"
+    return "Link destination unknown"
+
+
+def build_table_element(
+    pdf: pikepdf.Pdf,
+    table_data: list[list[str | None]],
+    *,
+    parent: pikepdf.Object,
+    page: pikepdf.Object,
+) -> pikepdf.Object:
+    """Build a structured /Table element with /TR, /TH (/Scope /Column), and /TD cells."""
+    table_elem = pikepdf.Dictionary(
+        Type=pikepdf.Name("/StructElem"),
+        S=pikepdf.Name("/Table"),
+        P=parent,
+        Pg=page,
+        K=pikepdf.Array(),
+    )
+
+    for row_idx, row in enumerate(table_data):
+        tr_elem = pikepdf.Dictionary(
+            Type=pikepdf.Name("/StructElem"),
+            S=pikepdf.Name("/TR"),
+            P=table_elem,
+            Pg=page,
+            K=pikepdf.Array(),
+        )
+        is_header_row = row_idx == 0
+        for cell_text in row:
+            val = (cell_text or "").strip()
+            cell_tag = "/TH" if is_header_row else "/TD"
+            cell_dict = pikepdf.Dictionary(
+                Type=pikepdf.Name("/StructElem"),
+                S=pikepdf.Name(cell_tag),
+                P=tr_elem,
+                Pg=page,
+            )
+            if val:
+                cell_dict["/Alt"] = pikepdf.String(val)
+            if is_header_row:
+                cell_dict["/A"] = pikepdf.Dictionary(
+                    O=pikepdf.Name("/Table"),
+                    Scope=pikepdf.Name("/Column"),
+                )
+            cell_elem = pdf.make_indirect(cell_dict)
+            tr_elem.K.append(cell_elem)
+
+        table_elem.K.append(pdf.make_indirect(tr_elem))
+
+    return pdf.make_indirect(table_elem)
+
+
 
 
 def _apply_reading_order(
