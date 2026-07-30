@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 import pikepdf
 
-from .embedded import extract_builtin_encoding, extract_builtin_unicode
+from .embedded import extract_builtin_encoding, extract_builtin_unicode, identity_h_cidfont_cmap
 from .encodings import apply_differences, encoding_table
 from .glyphnames import normalise_for_text_extraction, resolve_glyph_name
 from .tounicode import build_tounicode_cmap, parse_tounicode_cmap
@@ -158,10 +158,25 @@ def recover_mapping(font: pikepdf.Object, font_name: str | None = None) -> Recov
 
     # 2. The embedded program, which is the only source for a symbolic font.
     descendant = font
+    is_identity_h = str(font.get("/Encoding", "")) in ("/Identity-H", "/Identity-V")
     if composite:
         descendants = font.get("/DescendantFonts")
         if descendants is not None and len(descendants) > 0:
             descendant = descendants[0]
+
+    # 2a. For Identity-H CIDFontType2 (e.g. Google Docs exports), the CID equals the
+    #     TrueType GlyphID. Extract GlyphID->Unicode directly from the font program's
+    #     glyph order + cmap table and use it to fill gaps in the sparse ToUnicode.
+    if composite and is_identity_h:
+        descriptor = descendant.get("/FontDescriptor")
+        if descriptor is not None:
+            program = descriptor.get("/FontFile2")
+            if program is not None and hasattr(program, "read_bytes"):
+                try:
+                    for code, text in identity_h_cidfont_cmap(bytes(program.read_bytes())).items():
+                        result.add(code, text, Source.EMBEDDED_PROGRAM)
+                except Exception:
+                    _LOG.debug("could not read Identity-H CIDFont program for %s", name, exc_info=True)
 
     for code, text in extract_builtin_unicode(descendant).items():
         result.add(code, text, Source.EMBEDDED_PROGRAM)

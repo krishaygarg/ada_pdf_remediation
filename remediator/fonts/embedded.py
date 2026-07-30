@@ -93,6 +93,51 @@ def truetype_cmap(program: bytes) -> dict[int, str]:
     return mapping
 
 
+def identity_h_cidfont_cmap(program: bytes) -> dict[int, str]:
+    """Build a GlyphID-to-Unicode mapping for a CIDFontType2 with Identity-H encoding.
+
+    In an Identity-H encoded CIDFontType2, the 2-byte code in the content stream is
+    the CID, which equals the GlyphID in the TrueType font program. This means the
+    ToUnicode CMap must map GlyphID -> Unicode, not Unicode -> Unicode.
+
+    Google Docs and other producers emit a SPARSE ToUnicode that omits entries they
+    consider self-evident (e.g. ASCII chars), creating hundreds of unmapped codes
+    that axesCheck flags as ``CharactersUnicodeMappable`` errors.
+
+    This function derives ``{GlyphID: unicode_char}`` from the font's glyph order
+    and cmap table, filling those gaps.
+    """
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:  # pragma: no cover - fonttools is a hard dependency
+        return {}
+
+    try:
+        font = TTFont(io.BytesIO(program), fontNumber=0, lazy=True)
+        cmap_table = font.getBestCmap()
+        glyph_order = font.getGlyphOrder()
+    except Exception:
+        return {}
+    finally:
+        with contextlib.suppress(Exception):  # pragma: no cover - defensive
+            pass
+
+    if not cmap_table or not glyph_order:
+        return {}
+
+    # Build glyph_name -> unicode
+    name_to_unicode: dict[str, int] = {gname: cp for cp, gname in cmap_table.items()}
+
+    # Map GlyphID (index in glyph_order) -> unicode character
+    mapping: dict[int, str] = {}
+    for gid, gname in enumerate(glyph_order):
+        if gname in name_to_unicode:
+            cp = name_to_unicode[gname]
+            if cp <= 0x10FFFF:
+                mapping[gid] = chr(cp)
+    return mapping
+
+
 def cff_glyph_order(program: bytes) -> dict[int, str]:
     """Extract the encoding of a bare CFF program, as found in /FontFile3."""
     try:
@@ -230,6 +275,7 @@ __all__ = [
     "extract_builtin_encoding",
     "extract_builtin_unicode",
     "find_system_truetype_font",
+    "identity_h_cidfont_cmap",
     "truetype_cmap",
     "type1_builtin_encoding",
 ]
