@@ -16,6 +16,7 @@ from .figures import (
     is_meaningful_image,
 )
 from .font_patcher import recover_font_mapping
+from .fonts.embedded import ensure_font_embedded
 from .geometry.boxes import Box
 from .numbertree import build_number_tree
 from .progress import ConsoleReporter, ProgressReporter, Stage, emit
@@ -104,8 +105,6 @@ def build_table_element(
         table_elem.K.append(pdf.make_indirect(tr_elem))
 
     return pdf.make_indirect(table_elem)
-
-
 
 
 def _apply_reading_order(
@@ -836,11 +835,15 @@ def remediate_single_pdf(
         for idx, obj in enumerate(font_objs):
             base_font = str(obj.get("/BaseFont", "Unnamed")).lstrip("/")
             try:
+                # Automatically embed font program stream if missing (/FontFile2)
+                ensure_font_embedded(pdf, obj)
+
                 # Every font is processed, not only those missing a map. An
                 # existing map is treated as the most authoritative source and
                 # is extended rather than replaced, so a font that already has
                 # a good map keeps it and one with a partial map gains the rest.
                 recovered = recover_font_mapping(obj, base_font)
+
                 if not recovered.mapping:
                     emit(
                         reporter,

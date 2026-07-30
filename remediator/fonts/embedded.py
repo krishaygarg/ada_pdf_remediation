@@ -12,10 +12,8 @@ from __future__ import annotations
 import contextlib
 import io
 import re
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:  # pragma: no cover - imported for annotations only
-    import pikepdf
+import pikepdf
 
 #: Type 1 fonts declare their built-in encoding in the cleartext portion of the
 #: program, before the eexec-encrypted section, as a sequence of
@@ -168,10 +166,71 @@ def extract_builtin_unicode(font: pikepdf.Object) -> dict[int, str]:
         return {}
 
 
+def find_system_truetype_font() -> bytes | None:
+    """Find a standard TrueType font program file on the OS to embed when missing."""
+    from pathlib import Path
+
+    candidates = [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            try:
+
+                data = Path(path).read_bytes()
+                if (
+                    data.startswith(b"\x00\x01\x00\x00")
+                    or data.startswith(b"OTTO")
+                    or data.startswith(b"ttcf")
+                ):
+                    return data
+            except Exception:
+                continue
+    return None
+
+
+def ensure_font_embedded(pdf: pikepdf.Pdf, font_obj: pikepdf.Object) -> bool:
+    """Ensure font_obj has an embedded font program (/FontFile, /FontFile2, or /FontFile3)."""
+    descriptor = font_obj.get("/FontDescriptor")
+    if descriptor is None:
+        base_font = font_obj.get("/BaseFont", pikepdf.Name("/Helvetica"))
+        descriptor = pikepdf.Dictionary(
+            Type=pikepdf.Name("/FontDescriptor"),
+            FontName=base_font,
+            Flags=32,
+            FontBBox=[-166, -225, 1000, 905],
+            ItalicAngle=0,
+            Ascent=905,
+            Descent=-211,
+            CapHeight=718,
+            StemV=80,
+        )
+        font_obj["/FontDescriptor"] = pdf.make_indirect(descriptor)
+
+    if any(k in descriptor for k in ("/FontFile", "/FontFile2", "/FontFile3")):
+        return True
+
+    font_bytes = find_system_truetype_font()
+    if not font_bytes:
+        return False
+
+    font_stream = pikepdf.Stream(pdf, font_bytes)
+    font_stream["/Length1"] = len(font_bytes)
+    descriptor["/FontFile2"] = pdf.make_indirect(font_stream)
+    return True
+
+
 __all__ = [
     "cff_glyph_order",
+    "ensure_font_embedded",
     "extract_builtin_encoding",
     "extract_builtin_unicode",
+    "find_system_truetype_font",
     "truetype_cmap",
     "type1_builtin_encoding",
 ]
+
