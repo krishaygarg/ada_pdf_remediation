@@ -125,11 +125,23 @@ function fail(message) {
 
 function renderTally(audit) {
   const counts = audit.counts ?? {};
+  const axes = audit.axescheck_summary;
   const entries = [
     ['Errors', counts.errors ?? 0, counts.errors ? 'error' : 'good'],
     ['Warnings', counts.warnings ?? 0, counts.warnings ? 'warning' : 'neutral'],
     ['Rules run', audit.rulesRun ?? 0, 'neutral'],
   ];
+
+  if (axes && axes.success) {
+    if (axes.pdfuaScore !== undefined && axes.pdfuaScore !== null) {
+      entries.push(['axesCheck PDF/UA', `${axes.pdfuaScore}/100`, axes.pdfuaScore === 100 ? 'good' : 'warning']);
+    }
+    if (axes.wcagScore !== undefined && axes.wcagScore !== null) {
+      entries.push(['axesCheck WCAG', `${axes.wcagScore}/100`, axes.wcagScore === 100 ? 'good' : 'warning']);
+    }
+    entries.push(['axesCheck Errors', axes.totalErrors ?? 0, axes.totalErrors ? 'error' : 'good']);
+  }
+
   if (counts.review) entries.push(['Needs review', counts.review, 'neutral']);
 
   dom.tally.replaceChildren(
@@ -243,18 +255,27 @@ function renderReport(job) {
     return;
   }
 
-  dom.verdict.textContent = audit.conformant
-    ? 'No conformance errors were found by the checks that ran.'
+  const axes = audit.axescheck_summary;
+  let verdictText = audit.conformant
+    ? 'No conformance errors were found by internal checks.'
     : `${audit.counts.errors} conformance ${
         audit.counts.errors === 1 ? 'error' : 'errors'
       } remain. They are listed below with the clause behind each one.`;
 
+  if (axes && axes.success) {
+    verdictText += ` Official axesCheck report: PDF/UA Score ${axes.pdfuaScore}/100, WCAG Score ${axes.wcagScore}/100 (${axes.totalErrors} errors).`;
+  }
+
+  dom.verdict.textContent = verdictText;
   renderTally(audit);
   renderFindings(audit);
   dom.download.href = `${API_BASE}/api/jobs/${job.id}/download`;
-
+  dom.download.download = `remediator_${job.filename}`;
   show(dom.run, false);
   show(dom.report, true);
+  dom.download.focus();
+}
+
   dom.report.querySelector('h2').focus({ preventScroll: true });
   dom.report.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

@@ -215,6 +215,7 @@ def create_app(
         def work(current: Job) -> dict[str, Any]:
             from ..audit import audit_document
             from ..audit.reporters import to_dict
+            from ..axescheck import audit_pdf_axescheck
             from ..pipeline import remediate_single_pdf
 
             def report(event: ProgressEvent) -> None:
@@ -228,9 +229,48 @@ def create_app(
             )
             store.record_event(
                 current.id,
-                ProgressEvent(stage=Stage.AUDITING, message="Auditing conformance"),
+                ProgressEvent(stage=Stage.AUDITING, message="Auditing conformance & running axesCheck"),
             )
-            return {"audit": to_dict(audit_document(current.output_path))}
+            audit_dict = to_dict(audit_document(current.output_path))
+
+            # Always run axesCheck (check.axes4.com) for official PDF/UA & WCAG verification
+            axes_res = audit_pdf_axescheck(current.output_path)
+            audit_dict["axescheck"] = axes_res
+
+            if axes_res.get("success"):
+                body = axes_res.get("report", {}).get("body", {})
+                scores: dict[str, Any] = {}
+                total_errors = 0
+                total_warnings = 0
+                for rep in body.get("reports", []):
+                    rep_type = str(rep.get("type", ""))
+                    val = rep.get("report", {}).get("value", {})
+                    errs = val.get("errorCount", 0)
+                    warns = val.get("warningCount", 0)
+                    scores[rep_type] = {
+                        "score": round(float(rep.get("uaIndex", 0)), 1),
+                        "errors": errs,
+                        "warnings": warns,
+                    }
+                    total_errors += errs
+                    total_warnings += warns
+
+                audit_dict["axescheck_summary"] = {
+                    "success": True,
+                    "scores": scores,
+                    "totalErrors": total_errors,
+                    "totalWarnings": total_warnings,
+                    "pdfuaScore": scores.get("PDF/UA", {}).get("score"),
+                    "wcagScore": scores.get("WCAG2CheckSet", {}).get("score"),
+                }
+            else:
+                audit_dict["axescheck_summary"] = {
+                    "success": False,
+                    "error": axes_res.get("error", "axesCheck request failed"),
+                }
+
+            return {"audit": audit_dict}
+
 
         try:
             runner.submit(job, work)
