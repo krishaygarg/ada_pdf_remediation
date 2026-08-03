@@ -65,7 +65,7 @@ test = [
 ]
 dev = [
     "ada-pdf-remediator[ocr,test,web]",
-    "mypy>=1.10,<2",
+    "mypy>=1.10,<3",
     "ruff>=0.6",
     "pre-commit>=3.7",
 ]
