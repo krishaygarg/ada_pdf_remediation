@@ -6,7 +6,7 @@
 # cannot pick up a breaking release.
 
 # Core PDF stack
-pikepdf>=8.0.0,<10.5
+pikepdf>=8.0.0,<10.12
 pdfplumber>=0.10.0,<0.12
 PyMuPDF>=1.22.0,<2
 pillow>=9.5.0,<13
