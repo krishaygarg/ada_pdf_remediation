@@ -208,7 +208,7 @@ jobs:
         if: >-
           always() && hashFiles('tmp/audit.sarif') != ''
           && github.event.pull_request.head.repo.fork != true
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.37.4
         with:
           sarif_file: tmp/audit.sarif
           category: pdf-ua-audit
